@@ -121,6 +121,9 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- Converting merged co-term renewal lines requires an explicit cost-centre
+  choice when their predecessor licenses had different cost centres, matching
+  the budget-owner rule. The API enforces the same choice.
 - The Registry's column titles stay on top while the table scrolls. Only the
   select-all box stayed; the titles scrolled away with the rows.
 - A price cleared on a renewal line stayed cleared only until conversion: Convert

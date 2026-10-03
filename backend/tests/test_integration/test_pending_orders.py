@@ -3724,9 +3724,9 @@ async def test_convert_stale_coterm_order_rejects_conflicting_secondary_predeces
     assert secondary.renewed_to_id == existing_successor["id"]
 
 
-async def _coterm_po_with_owners(test_app, auth_headers, first_owner: str, second_owner: str) -> tuple[dict, dict]:
-    first = await _create_license(test_app, auth_headers, endDate="2025-12-31", budgetOwnerEmail=first_owner)
-    second = await _create_license(test_app, auth_headers, endDate="2025-12-31", budgetOwnerEmail=second_owner)
+async def _coterm_po_with_owners(test_app, auth_headers, first_owner: str, second_owner: str, *, cost_centres=("", "")) -> tuple[dict, dict]:
+    first = await _create_license(test_app, auth_headers, endDate="2025-12-31", budgetOwnerEmail=first_owner, costCentre=cost_centres[0])
+    second = await _create_license(test_app, auth_headers, endDate="2025-12-31", budgetOwnerEmail=second_owner, costCentre=cost_centres[1])
     sourcing_first = await _initiate_renewal(test_app, auth_headers, first["id"])
     sourcing_second = await _initiate_renewal(test_app, auth_headers, second["id"])
     merge_resp = await test_app.post(
@@ -3744,6 +3744,31 @@ async def test_coterm_merge_keeps_identical_budget_owner(test_app, auth_headers)
     merged, _po = await _coterm_po_with_owners(test_app, auth_headers, "owner@example.com", "owner@example.com")
 
     assert merged["budgetOwnerEmail"] == "owner@example.com"
+
+
+async def test_coterm_conversion_requires_cost_centre_when_predecessors_differ(test_app, auth_headers):
+    merged, po = await _coterm_po_with_owners(
+        test_app, auth_headers, "owner@example.com", "owner@example.com", cost_centres=("CC-A", "CC-B"),
+    )
+    assert not merged["costCentre"]
+    blank = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert-all", headers=auth_headers,
+        json=[_batch_convert_item(merged["id"], costCentre="")],
+    )
+    assert blank.status_code == 422, blank.text
+    assert "cost centre" in blank.json()["detail"].lower()
+    omitted = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert", headers=auth_headers,
+        data={"data": json.dumps(_single_convert_form())},
+    )
+    assert omitted.status_code == 422, omitted.text
+    chosen = await test_app.post(
+        f"/api/pending-orders/{po['id']}/convert-all", headers=auth_headers,
+        json=[_batch_convert_item(merged["id"], costCentre="CC-B")],
+    )
+    assert chosen.status_code == 200, chosen.text
+    successor = next(row for row in chosen.json() if row["conversionType"] == "renewed")
+    assert successor["costCentre"] == "CC-B"
 
 
 async def test_coterm_conversion_requires_budget_owner_when_predecessors_differ(test_app, auth_headers):
