@@ -17,10 +17,12 @@ import {
   normaliseLicenseTypeFields, normaliseTypeOptInFields, validateTypeDescription, syncInvoiceNumbers,
   linkOrActivateMaintenance, recordIncludedSupportExit, applyIncludedSupportUpdate, startSupportRenewal,
   assertLineCurrencyFitsPendingOrder, assertPendingOrderOverrideCurrencies, countPoOverridesNotInAnnual,
+  clearNoticeHandledIfDateChanged,
 } from "./store.js";
 import { buildLicense } from "./fixtures.js";
 import { syncLicensePoLine } from "./poLines.js";
 import { applyIncludedSupportDefaults } from "./supportDefaults.js";
+import { validateDemoMoney } from "./numberValidation.js";
 import { datetimeDaysAgo } from "./time.js";
 import { isPendingOrderOpen } from "../utils/pendingOrderState.js";
 import { hasSameProcurementIdentity } from "../utils/procurementIdentity.js";
@@ -123,8 +125,8 @@ const BLANKABLE_STRING_PATCH_FIELDS = new Set([
   "procurementReference", "invoiceNumber", "contactEmail", "supplier", "costCentre", "budgetOwnerEmail",
 ]);
 const MAINTENANCE_COVERAGE_VALUES = new Set(["included", "separately_tracked", "not_applicable", "unknown"]);
-const CANONICAL_MONEY = /^\d+(\.\d+)?$/;
 const SIMPLE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NONNEGATIVE_PO_OVERRIDE = /^\d+(\.\d+)?$/;
 
 function validatePatchFieldInput(field, value) {
   if (!FIELD_PATCH_ALLOWED.has(field)) {
@@ -139,8 +141,12 @@ function validatePatchFieldInput(field, value) {
   if (EMAIL_PATCH_FIELDS.has(field) && value && !SIMPLE_EMAIL.test(value)) {
     throw new Error(`Invalid email format for '${field}'.`);
   }
-  if (NUMERIC_PATCH_FIELDS.has(field) && value && !CANONICAL_MONEY.test(value)) {
-    throw new Error(`Invalid numeric value for '${field}'. Expected a plain decimal string such as '1234.50'.`);
+  if (NUMERIC_PATCH_FIELDS.has(field)) {
+    try {
+      validateDemoMoney({ [field]: value });
+    } catch {
+      throw new Error(`Invalid numeric value for '${field}'. Expected a plain decimal string such as '1234.50'.`);
+    }
   }
   if (field === "maintenanceCoverage" && !MAINTENANCE_COVERAGE_VALUES.has(value)) {
     throw new Error(`Invalid maintenance coverage: ${value}`);
@@ -420,6 +426,7 @@ function prepareDemoLicenseCreate(payload) {
 }
 
 function canonicalizeDemoReferenceFields(payload) {
+  validateDemoMoney(payload);
   // PO line numbers are generated only; the real API rejects a request that sets one.
   if (payload && (Object.hasOwn(payload, "poLineNumber") || Object.hasOwn(payload, "poLineId"))) {
     throw new Error("PO line numbers are generated and cannot be set");
@@ -508,6 +515,17 @@ export const routes = [
   { method: "POST", pattern: /^\/api\/auth\/logout$/, handler: async () => { resetStore(); return { data: null, error: null }; } },
   { method: "GET", pattern: /^\/api\/auth\/session$/, handler: async () => ({ data: { authenticated: store.seeded, user: store.seeded ? demoUser : null }, error: null }) },
   { method: "GET", pattern: /^\/api\/users\/me$/, handler: async () => ({ data: demoUser, error: null }) },
+  {
+    method: "POST", pattern: /^\/api\/licenses\/(?<id>\d+)\/notice\/handled$/,
+    handler: async ({ params }) => {
+      const license = findLicenseOr404(Number(params.id));
+      if (!license.noticeDate) throw new Error("License has no notice date to mark handled");
+      license.noticeHandledAt = new Date().toISOString();
+      license.noticeHandledByUserId = demoUser.id;
+      license.updatedAt = new Date().toISOString();
+      return { data: withComputedCompleteness(license), error: null };
+    },
+  },
   { method: "GET", pattern: /^\/api\/users$/, handler: async () => ({ data: [demoUser, demoViewer], error: null }) },
   {
     method: "GET", pattern: /^\/api\/users\/(?<id>\d+)\/departments$/,
@@ -1177,6 +1195,7 @@ export const routes = [
       if (!license.poNumber) throw new Error("A PO number is required to override the total PO value");
       const value = body?.poTotalOverride;
       if (!value) throw new Error("PO total override is required");
+      validateDemoMoney({ poTotalOverride: value });
       // The group is the durable procurement identity (pending order, bundle or
       // PO number) within one currency - po_total_override_service.apply_po_total_override.
       store.licenses
@@ -1217,7 +1236,7 @@ export const routes = [
       if (field === "contractNumber") {
         license.contractNumber = value || "";
       } else if (DATE_PATCH_FIELDS.has(field)) {
-        if (field === "noticeDate" && (value || null) !== license.noticeDate) license.noticeHandledAt = null;
+        if (field === "noticeDate") clearNoticeHandledIfDateChanged(license, value || null);
         // Non-expiring types never carry an end date.
         license[field] = field === "endDate" && isNonExpiringLicenseType(license.licenseType) ? null : value || null;
       } else if (field === "licenseType") {
@@ -1410,6 +1429,7 @@ export const routes = [
       // Translate a retirement request / end-date move into immediate or
       // end-of-term retirement before applying (normalize_retirement_update).
       normalizeRetirementUpdate(license, updateData);
+      if (Object.hasOwn(updateData, "noticeDate")) clearNoticeHandledIfDateChanged(license, updateData.noticeDate);
       Object.assign(license, updateData);
       if (newParent) linkMaintenanceToParentRecord(license, newParent);
       applyIncludedSupportDefaults(license);
@@ -1946,7 +1966,7 @@ export const routes = [
         const value = body.poTotalOverride;
         if (value == null || value === "") {
           poTotalOverride = null;
-        } else if (typeof value !== "string" || !CANONICAL_MONEY.test(value)) {
+        } else if (typeof value !== "string" || !NONNEGATIVE_PO_OVERRIDE.test(value)) {
           throw new Error("PO total must be a plain decimal string (e.g. '1234.50').");
         } else {
           assertPendingOrderOverrideCurrencies(order.id);

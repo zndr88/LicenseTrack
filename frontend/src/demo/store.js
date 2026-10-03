@@ -530,6 +530,12 @@ export function computeNotifications() {
     });
 }
 
+export function clearNoticeHandledIfDateChanged(license, noticeDate) {
+  if (noticeDate === license.noticeDate) return;
+  license.noticeHandledAt = null;
+  license.noticeHandledByUserId = null;
+}
+
 export function computePortfolioReportStats() {
   const stats = computeStats();
   const byLicenseType = {
