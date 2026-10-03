@@ -1599,7 +1599,7 @@ def upgrade(args: argparse.Namespace) -> None:
             live_migration_started = True
             if merged_environment != environment:
                 write_env_file(paths.config_file, merged_environment, paths.service_group)
-                info("Added new native configuration defaults; existing values were preserved.")
+                info("Updated native configuration defaults; customized values were preserved.")
             run_migrations(candidate, paths.config_file)
             sqlite_integrity_check(db_path)
 
