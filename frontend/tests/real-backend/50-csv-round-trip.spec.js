@@ -3,6 +3,37 @@ import { apiGet, apiPost, apiSend, findLicense } from "./helpers.js";
 
 const DESCRIPTION = "E2E CSV Round Trip";
 
+test("reusing an external reference requires acknowledgement before CSV import", async ({ page }) => {
+  const original = await apiPost(page, "/api/licenses", {
+    publisherName: "E2E Publisher",
+    softwareDescription: "E2E External Reference Original",
+    licenseType: "freeware",
+    licenseMetric: "per_user",
+    externalRef: "E2E-EXTERNAL-DUPLICATE",
+    currency: "EUR",
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Import" }).or(page.getByRole("link", { name: "Import" })).first().click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "external-reference.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("publisher_name,software_description,license_type,external_ref,currency\nOther Publisher,E2E External Reference Reuse,freeware,E2E-EXTERNAL-DUPLICATE,EUR\n"),
+  });
+  const importButton = page.getByRole("button", { name: /^Acknowledge warnings and import/ });
+  await expect(page.getByText(/External reference matches/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Import \d+ licenses?$/ })).toHaveCount(0);
+  await expect(importButton).toBeEnabled();
+  await importButton.click();
+  await expect(page.getByText("Import complete")).toBeVisible();
+  const imported = await findLicense(page, "E2E External Reference Reuse");
+  expect(imported).not.toBeNull();
+  // These deliberately duplicated references must not enter the later full export.
+  for (const id of [original.id, imported.id]) {
+    const deleted = await apiSend(page, "DELETE", `/api/licenses/${id}`);
+    expect(deleted.ok()).toBeTruthy();
+  }
+});
+
 test("a license exported with Export Full Data comes back unchanged through the native import", async ({ page }, testInfo) => {
   // Setup through the API: a license with quantity and unit price, a manual PO total,
   // per-unit maintenance pricing and a PO number (which receives a PO line).

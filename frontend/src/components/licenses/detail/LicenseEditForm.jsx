@@ -11,7 +11,7 @@ import {
 import {
   isHiddenFromLinking,
   parentCandidate,
-  quickLinkMaintenanceCandidates,
+  maintenanceLinkCandidates,
 } from "../../../utils/maintenanceLinking.js";
 import MaintenanceQuickLinkField from "../MaintenanceQuickLinkField.jsx";
 import { useAllLicenses } from "../../../hooks/useAllLicenses.js";
@@ -67,7 +67,7 @@ export default function LicenseEditForm({
     && supportsSeparateMaintenanceLine(editFields.licenseType)
     && editFields.maintenanceCoverage === "separately_tracked";
   const quickLinkCandidates = showQuickLink
-    ? quickLinkMaintenanceCandidates(allLicenses, licenseId, { formatDay: (value) => formatDate(value, userSettings) })
+    ? maintenanceLinkCandidates(allLicenses, licenseId, { formatDay: (value) => formatDate(value, userSettings) })
     : [];
   const descriptionMissing = typeDescriptionMissing(editFields.licenseType, editFields.typeDescription);
   const poNumberChanged = (editFields.poNumber ?? "").trim() !== (savedPoNumber ?? "").trim();

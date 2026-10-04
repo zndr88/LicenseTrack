@@ -50,6 +50,37 @@ function addMergedRenewalItem({ requestId = 9001, pendingOrderId = null } = {}) 
 describe("renewal golden path transitions", () => {
   beforeEach(async () => { resetStore(); await login(); });
 
+  it.each([false, true])("requires an explicit cost centre for split co-term conversions (batch: %s)", async (batch) => {
+    store.pendingOrders.push({
+      id: 9010, poNumber: "PO-COST-CHOICE", supplier: "Merged Vendor", notes: null,
+      status: "pending", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      createdBy: 1, items: [], documents: [], totalPoValue: null,
+    });
+    const { primary, secondary } = addMergedRenewalItem({ pendingOrderId: 9010 });
+    store.sourcingItems.find((item) => item.id === 9002).cotermPredecessorIds = [primary.id, secondary.id];
+    primary.renewedToId = secondary.renewedToId = null;
+    primary.costCentre = "CC-A";
+    secondary.costCentre = "CC-B";
+    primary.budgetOwnerEmail = secondary.budgetOwnerEmail = "owner@example.com";
+    const payload = { sourcingItemId: 9002, publisherName: primary.publisherName,
+      softwareDescription: primary.softwareDescription, quantity: "2", unitPrice: "10",
+      budgetOwnerEmail: "owner@example.com", costCentre: "", supplier: "Merged Vendor" };
+    const request = (data) => {
+      if (batch) return { method: "POST", body: JSON.stringify([data]) };
+      const form = new FormData();
+      const fields = { ...data };
+      delete fields.sourcingItemId;
+      form.append("data", JSON.stringify(fields));
+      return { method: "POST", body: form };
+    };
+    const endpoint = `/api/pending-orders/9010/${batch ? "convert-all" : "convert"}`;
+    const rejected = await demoRequest(endpoint, request(payload));
+    expect(rejected.error).toMatch(/Choose a cost centre/);
+    const accepted = await demoRequest(endpoint, request({ ...payload, costCentre: "CC-B" }));
+    expect(accepted.error).toBeNull();
+    expect(accepted.data.find((row) => row.conversionType === "renewed").costCentre).toBe("CC-B");
+  });
+
   it("initiate-renewal flips lifecycle and creates a linked sourcing item", async () => {
     const target = store.licenses.find((l) => l.daysUntilExpiry === 20);
     const { data, error } = await demoRequest(`/api/licenses/${target.id}/initiate-renewal`, { method: "POST", body: JSON.stringify({}) });

@@ -3,7 +3,7 @@
  * the edit-line form and the conversion forms so they always show the same value.
  */
 
-const cleanEmail = (value) => String(value ?? "").trim();
+const cleanValue = (value) => String(value ?? "").trim();
 
 /** Predecessor license ids for a renewal line: coterm ids when merged, else the single renewal source. */
 export function linePredecessorIds(item) {
@@ -13,15 +13,15 @@ export function linePredecessorIds(item) {
 }
 
 /**
- * Resolve a line's budget owner. The stored line value is the truth; only a
- * line with exactly one predecessor falls back to that predecessor's owner.
- * Merged coterm lines whose predecessors had different owners stay blank and
+ * Resolve a line's allocation field. The stored line value is the truth; only
+ * a line with exactly one predecessor falls back to that predecessor's value.
+ * Merged coterm lines whose predecessors had different values stay blank and
  * are flagged `required` so conversion forces an explicit choice.
  *
  * @returns {{ value: string, required: boolean }}
  */
-export function resolveLineBudgetOwner(item, licenses = []) {
-  const stored = cleanEmail(item?.budgetOwnerEmail);
+function resolveLineAllocation(item, licenses, field) {
+  const stored = cleanValue(item?.[field]);
   if (stored) return { value: stored, required: false };
 
   const predecessorIds = linePredecessorIds(item);
@@ -29,11 +29,19 @@ export function resolveLineBudgetOwner(item, licenses = []) {
     .map((id) => (licenses || []).find((license) => license.id === id))
     .filter(Boolean);
   if (predecessorIds.length === 1) {
-    return { value: cleanEmail(predecessors[0]?.budgetOwnerEmail), required: false };
+    return { value: cleanValue(predecessors[0]?.[field]), required: false };
   }
 
   const distinctOwners = new Set(
-    predecessors.map((license) => cleanEmail(license.budgetOwnerEmail).toLowerCase()).filter(Boolean),
+    predecessors.map((license) => cleanValue(license[field]).toLowerCase()).filter(Boolean),
   );
   return { value: "", required: distinctOwners.size > 1 };
+}
+
+export function resolveLineBudgetOwner(item, licenses = []) {
+  return resolveLineAllocation(item, licenses, "budgetOwnerEmail");
+}
+
+export function resolveLineCostCentre(item, licenses = []) {
+  return resolveLineAllocation(item, licenses, "costCentre");
 }
