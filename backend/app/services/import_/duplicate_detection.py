@@ -94,6 +94,10 @@ def _match_duplicate(
     is_license = isinstance(candidate, License)
     getter = _license_match_value if is_license else _row_match_value
 
+    external_ref = _row_match_value(row, "external_ref")
+    if external_ref and external_ref == getter(candidate, "external_ref"):
+        return "high", ["external_ref"]
+
     row_publisher = _row_match_value(row, "publisher_name")
     row_software = _row_match_value(row, "software_description")
     candidate_publisher = getter(candidate, "publisher_name")
@@ -154,6 +158,7 @@ def _match_fields_sentence(fields: list[str]) -> str:
         "po_number": "PO",
         "start_date": "start date",
         "end_date": "end date",
+        "external_ref": "external reference",
     }
     names = [labels.get(field, field) for field in fields]
     if len(names) <= 1:
@@ -171,6 +176,7 @@ async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> Non
     needs_existing_candidates = any(
         (_norm_text(row.publisher_name) and _norm_text(row.software_description))
         or _norm_text(row.license_ref)
+        or _norm_text(row.external_ref)
         for row in usable_rows
     )
     # SQLite cannot safely reproduce Python's whitespace collapse and Unicode
@@ -182,18 +188,22 @@ async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> Non
 
     licenses_by_identity: dict[tuple[str, str], list[License]] = {}
     licenses_by_ref: dict[str, list[License]] = {}
+    licenses_by_external_ref: dict[str, list[License]] = {}
     for license_obj in existing_licenses:
         licenses_by_identity.setdefault(
             (_norm_text(license_obj.publisher_name), _norm_text(license_obj.software_description)), []
         ).append(license_obj)
         if _norm_text(license_obj.license_ref):
             licenses_by_ref.setdefault(_norm_text(license_obj.license_ref), []).append(license_obj)
+        if _norm_text(license_obj.external_ref):
+            licenses_by_external_ref.setdefault(_norm_text(license_obj.external_ref), []).append(license_obj)
 
     for row in rows:
         if row.import_status == "error":
             continue
         normalized_ref = _norm_text(row.license_ref)
         candidates = list(licenses_by_ref.get(normalized_ref, [])) if normalized_ref else []
+        candidates += licenses_by_external_ref.get(_norm_text(row.external_ref), [])
         candidates += licenses_by_identity.get(
             (_norm_text(row.publisher_name), _norm_text(row.software_description)), []
         )
@@ -202,6 +212,8 @@ async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> Non
             if license_obj.id in seen_license_ids:
                 continue
             seen_license_ids.add(license_obj.id)
+            if row.import_action == "update" and row.matched_license_id == license_obj.id:
+                continue
             ref_warning = _match_by_license_ref(row, license_obj)
             if ref_warning:
                 # An intended update reconciles onto this record; not a duplicate.
@@ -226,19 +238,23 @@ async def add_duplicate_warnings(rows: list[ParsedRow], db: AsyncSession) -> Non
             break
 
     rows_by_identity: dict[tuple[str, str], list[ParsedRow]] = {}
+    rows_by_external_ref: dict[str, list[ParsedRow]] = {}
     for row in rows:
         if row.import_status != "error":
             rows_by_identity.setdefault(
                 (_norm_text(row.publisher_name), _norm_text(row.software_description)), []
             ).append(row)
+            if _norm_text(row.external_ref):
+                rows_by_external_ref.setdefault(_norm_text(row.external_ref), []).append(row)
 
     for row in rows:
         if row.import_status == "error":
             continue
-        candidates = rows_by_identity.get(
-            (_norm_text(row.publisher_name), _norm_text(row.software_description)), []
+        candidates = list(
+            rows_by_identity.get((_norm_text(row.publisher_name), _norm_text(row.software_description)), [])
         )
-        for earlier in candidates:
+        candidates += rows_by_external_ref.get(_norm_text(row.external_ref), [])
+        for earlier in sorted(candidates, key=lambda candidate: candidate.row_number):
             if earlier.row_number >= row.row_number:
                 break
             if earlier.import_status == "error":

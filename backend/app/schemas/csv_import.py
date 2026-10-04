@@ -147,7 +147,7 @@ class ImportWarningSummary(BaseModel):
     ambiguous_date_count: int = 0
     inferred_parent_count: int = 0  # maintenance rows whose parent was inferred from batch
     duplicate_warning_count: int = 0  # rows with at least one duplicate warning
-    price_mismatch_count: int = 0  # rows whose Qty x Unit Price differs sharply from Total PO Price
+    price_mismatch_count: int = 0  # rows whose Qty x Unit Price differs sharply from Line Total
     expired_maintenance_count: int = 0  # rows whose included maintenance coverage has ended
     legacy_unlinked_maintenance_count: int = 0  # explicitly selected parentless maintenance creates
     rows_with_warnings_count: int = 0  # non-error rows accepted with any non-fatal warning

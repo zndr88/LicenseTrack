@@ -11,7 +11,7 @@ import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import ContactCombobox from "../ui/ContactCombobox.jsx";
 import { isNonExpiringLicenseType, typeDescriptionMissing } from "../../utils/licenseTypeRules.js";
 import LicenseTypeOptInFields from "../licenses/LicenseTypeOptInFields.jsx";
-import { BUDGET_OWNER_REQUIRED_MESSAGE } from "../../utils/procurementSchemas.js";
+import { BUDGET_OWNER_REQUIRED_MESSAGE, COST_CENTRE_REQUIRED_MESSAGE } from "../../utils/procurementSchemas.js";
 import { filterCustomFieldDefinitionsForRenewal } from "../../utils/customFieldRenewal.js";
 import { ModalSectionExpansionContext } from "../ui/ModalSectionExpansionContext.js";
 import LicenseTypeLabel from "../licenses/LicenseTypeLabel.jsx";
@@ -33,6 +33,7 @@ export function isItemReady(item) {
     (item.licenseType !== "maintenance" || item.parentLicenseId || item.parentSourcingItemId) &&
     item.quantity?.toString().trim() !== "" &&
     (!item.budgetOwnerRequired || item.budgetOwnerEmail?.trim()) &&
+    (!item.costCentreRequired || item.costCentre?.trim()) &&
     (isFreewareLicenseType(item.licenseType) || item.unitPrice?.toString().trim() !== "")
   );
 }
@@ -188,12 +189,15 @@ export default function ConvertItemForm({
               />
             </div>
             <div className="fg">
-              <label htmlFor={`ca-cost-centre-${idx}`}>Cost Centre</label>
+              <label htmlFor={`ca-cost-centre-${idx}`}>Cost Centre{wi.costCentreRequired && <span className="req"> *</span>}</label>
               <Controller
                 control={control}
                 name={`items.${idx}.costCentre`}
                 render={({ field }) => <ReferenceCombobox id={`ca-cost-centre-${idx}`} mode="costCentre" {...field} />}
               />
+              {itemErrors?.costCentre
+                ? <span className="field-error">{itemErrors.costCentre.message}</span>
+                : wi.costCentreRequired && !wi.costCentre?.trim() && <span className="field-hint">{COST_CENTRE_REQUIRED_MESSAGE}</span>}
             </div>
           </div>
           <div className="fr">

@@ -93,26 +93,29 @@ def _enforce_order_supplier(
     data["supplier"] = canonical_supplier
 
 
-async def _require_budget_owner_for_split_coterm(
+async def _require_choices_for_split_coterm(
     db: AsyncSession,
     sourcing_item: SourcingItem,
     item_data: dict,
     *,
     detail_prefix: str = "",
 ) -> None:
-    """Force an explicit budget owner when merged coterm predecessors disagree."""
+    """Require explicit allocation choices when merged predecessors disagree."""
     predecessor_ids = list(sourcing_item.coterm_predecessor_ids or [])
-    if len(predecessor_ids) < 2 or str(item_data.get("budget_owner_email") or "").strip():
+    if len(predecessor_ids) < 2:
         return
-    owners = (
-        await db.execute(select(License.budget_owner_email).where(License.id.in_(predecessor_ids)))
-    ).scalars().all()
-    distinct_owners = {owner.strip().casefold() for owner in owners if owner and owner.strip()}
-    if len(distinct_owners) > 1:
-        raise HTTPException(
-            status_code=422,
-            detail=f"{detail_prefix}Choose a budget owner: the merged licenses had different budget owners",
-        )
+    for field, label in (("budget_owner_email", "budget owner"), ("cost_centre", "cost centre")):
+        if str(item_data.get(field) or "").strip():
+            continue
+        values = (
+            await db.execute(select(getattr(License, field)).where(License.id.in_(predecessor_ids)))
+        ).scalars().all()
+        distinct = {value.strip().casefold() for value in values if value and value.strip()}
+        if len(distinct) > 1:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{detail_prefix}Choose a {label}: the merged licenses had different {label}s",
+            )
 
 
 def _maintenance_chain_order(
@@ -577,7 +580,7 @@ async def convert_pending_order_to_licenses(
                     order_notes=order.notes,
                 )
                 item_data["source_sourcing_item_id"] = item.id
-                await _require_budget_owner_for_split_coterm(db, item, item_data)
+                await _require_choices_for_split_coterm(db, item, item_data)
 
                 new_lic, conversion_type, item_predecessor_ids = await _create_prepared_conversion_license(
                     db=db,
@@ -720,7 +723,7 @@ async def batch_convert_pending_order_to_licenses(
             order_notes=order.notes,
         )
         item_data["source_sourcing_item_id"] = sourcing_item.id
-        await _require_budget_owner_for_split_coterm(
+        await _require_choices_for_split_coterm(
             db,
             sourcing_item,
             item_data,

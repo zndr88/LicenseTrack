@@ -1,7 +1,10 @@
 from datetime import date, timedelta
 from decimal import Decimal
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage
 from app.services.report_export_service import build_report_export_csv
 from app.services import reporting_service
@@ -45,6 +48,29 @@ def make_license(**overrides):
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
+
+
+CURRENCY_TOTALS_CASES = json.loads(
+    (Path(__file__).parents[1] / "fixtures" / "currency_totals_cases.json").read_text(encoding="utf-8")
+)
+
+
+@pytest.mark.parametrize("case", CURRENCY_TOTALS_CASES, ids=lambda case: case["name"])
+def test_shared_currency_totals_guard_reports_and_overview(case):
+    today = date.today()
+    licenses = [make_license(
+        id=line["id"], quantity=line["quantity"], unit_price=line["unitPrice"],
+        currency=line["currency"], po_number=line["poNumber"],
+        po_total_override=line.get("poTotalOverride"),
+        start_date=today, end_date=today + timedelta(days=364),
+    ) for line in case["lines"]]
+    report = build_report_model(licenses, ReportOptions())
+    assert report.cost_overview["licenseSpendByCurrency"] == case["lineTotals"]
+    assert report.cost_overview["poSpendByCurrency"] == case["poTotals"]
+    stats = compute_stats(licenses, {}, {})
+    assert stats["annual_cost_by_currency"] == {
+        currency: float(value) for currency, value in case["lineTotals"].items()
+    }
 
 
 def test_included_support_does_not_replace_perpetual_acquisition_spend():

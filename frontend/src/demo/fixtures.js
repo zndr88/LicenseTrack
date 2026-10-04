@@ -106,6 +106,7 @@ export function buildLicense(overrides) {
     invoiceNumbers: [],
     noticeDate: null,
     noticeHandledAt: null,
+    noticeHandledByUserId: null,
     poTotalOverride: null,
     procurementBundleId: null,
     notes: null,

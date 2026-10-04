@@ -36,7 +36,6 @@ export function useRenewalWorkflowActions({
   }, [queryClient, updateLicensesInCache]);
 
   const refreshWorkflow = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.licenseStats });
     onPortfolioStateChange?.();
     invalidateRenewalWorkflow(queryClient);
   }, [onPortfolioStateChange, queryClient]);

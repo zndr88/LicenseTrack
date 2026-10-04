@@ -63,6 +63,7 @@ DEFAULT_MAX_UPLOAD_SIZE_MB = 20
 DEFAULT_MAX_PLUGIN_PACKAGE_SIZE_MB = 50
 DEFAULT_MAX_PLUGIN_DOCUMENT_SIZE_MB = 10
 DEFAULT_ALLOWED_UPLOAD_EXTENSIONS = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx,.lic,.msg"
+PREVIOUS_DEFAULT_ALLOWED_UPLOAD_EXTENSIONS = ".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv,.txt,.docx"
 
 
 class InstallerError(RuntimeError):
@@ -956,7 +957,7 @@ def configuration_values(args: argparse.Namespace, paths: InstallPaths) -> dict[
 
 
 def merge_new_configuration_defaults(current: dict[str, str], paths: InstallPaths, state: dict) -> dict[str, str]:
-    """Add new native defaults without replacing any operator-managed values."""
+    """Add native defaults and migrate the exact previous upload extension default."""
     data_root = Path(paths.data_root)
     defaults = {
         "STORAGE_PATH": os.fspath(data_root / "storage"),
@@ -969,6 +970,8 @@ def merge_new_configuration_defaults(current: dict[str, str], paths: InstallPath
         "EXPOSE_API_DOCS": "false",
     }
     merged = current.copy()
+    if merged.get("ALLOWED_UPLOAD_EXTENSIONS") == PREVIOUS_DEFAULT_ALLOWED_UPLOAD_EXTENSIONS:
+        merged["ALLOWED_UPLOAD_EXTENSIONS"] = DEFAULT_ALLOWED_UPLOAD_EXTENSIONS
     for key, value in defaults.items():
         merged.setdefault(key, value)
     return merged
@@ -1596,7 +1599,7 @@ def upgrade(args: argparse.Namespace) -> None:
             live_migration_started = True
             if merged_environment != environment:
                 write_env_file(paths.config_file, merged_environment, paths.service_group)
-                info("Added new native configuration defaults; existing values were preserved.")
+                info("Updated native configuration defaults; customized values were preserved.")
             run_migrations(candidate, paths.config_file)
             sqlite_integrity_check(db_path)
 
