@@ -97,6 +97,7 @@ Work in progress for 1.2.0.
   the notice-date reminder reset rule.
   behaviour change). Request schemas share the canonical money validation helper
   while preserving their field lists, validation timing and error messages.
+  behaviour change). CSV import also uses the shared included-maintenance type set.
 - Budget owners now receive Maintenance Ending and Maintenance Expired alerts
   for the included maintenance on their perpetual, OEM and freeware licenses,
   alongside license expiry alerts. These rows are marked "Maintenance" and show

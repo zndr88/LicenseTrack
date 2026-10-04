@@ -25,7 +25,7 @@ from app.services.csv_fields import header_map as _registry_header_map
 from app.services.csv_fields import normalise_header
 from app.services.csv_fields import ignored_headers as _registry_ignored_headers
 from app.services.import_.date_parser import DATE_FORMAT_VARIANTS, parse_import_date
-from app.services.license_service import calc_line_total, unit_price_from_total
+from app.services.license_service import INCLUDED_SUPPORT_PARENT_TYPES, calc_line_total, unit_price_from_total
 from app.services.money import MoneyParseError, parse_localized_money
 
 logger = logging.getLogger("license_lifecycle.csv_importer")
@@ -79,8 +79,6 @@ _VALID_LICENSE_METRICS = {
     "enterprise",
     "other",
 }
-
-_INCLUDED_SUPPORT_PARENT_TYPES = {"perpetual", "oem", "freeware"}
 
 _VALID_MAINTENANCE_COVERAGE = {
     "unknown",
@@ -573,7 +571,7 @@ def _classify_row(
         return "active", None, False
 
     today = date.today()
-    non_expiring_license = license_type in _INCLUDED_SUPPORT_PARENT_TYPES
+    non_expiring_license = license_type in INCLUDED_SUPPORT_PARENT_TYPES
     end_in_past = not non_expiring_license and db_end_date is not None and db_end_date < today
 
     if end_in_past and (not has_publisher or not has_description):
@@ -757,7 +755,7 @@ def _parse_row(
         )
         maintenance_pricing_basis = None
 
-    if maintenance_coverage == "included" and license_type in _INCLUDED_SUPPORT_PARENT_TYPES:
+    if maintenance_coverage == "included" and license_type in INCLUDED_SUPPORT_PARENT_TYPES:
         if db_maintenance_start_date is None and db_start_date is not None:
             db_maintenance_start_date = db_start_date
             maintenance_start_date_str = start_date_str
@@ -775,7 +773,7 @@ def _parse_row(
     # -- Classification ---------------------------------------------------
     if (
         maintenance_coverage == "included"
-        and license_type in _INCLUDED_SUPPORT_PARENT_TYPES
+        and license_type in INCLUDED_SUPPORT_PARENT_TYPES
         and db_maintenance_end_date is not None
         and db_maintenance_end_date < date.today()
     ):
