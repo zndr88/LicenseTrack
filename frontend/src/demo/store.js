@@ -530,6 +530,12 @@ export function computeNotifications() {
     });
 }
 
+export function clearNoticeHandledIfDateChanged(license, noticeDate) {
+  if (noticeDate === license.noticeDate) return;
+  license.noticeHandledAt = null;
+  license.noticeHandledByUserId = null;
+}
+
 export function computePortfolioReportStats() {
   const stats = computeStats();
   const byLicenseType = {
@@ -2217,13 +2223,13 @@ function buildPendingOrderItemLicenseData(formData, item, oldLicense, submittedF
     data.licenseMetric = oldLicense.licenseMetric;
     if (oldLicense.licenseType === "maintenance") data.parentLicenseId = oldLicense.parentLicenseId;
     if (oldLicense.skuCode) data.skuCode = oldLicense.skuCode;
-    if (oldLicense.costCentre) data.costCentre = oldLicense.costCentre;
-    // The line's stored owner is the truth. Only a single-predecessor line falls
-    // back to that predecessor; merged coterm lines never inherit the primary's owner.
+    // Only a single-predecessor line inherits allocation fields. Explicit
+    // conversion choices and stored line values take precedence.
     const singlePredecessor = (item.cotermPredecessorIds ?? []).length < 2;
-    if (singlePredecessor && !submittedFields.has("budgetOwnerEmail") && !hasValue(item.budgetOwnerEmail)
-      && oldLicense.budgetOwnerEmail) {
-      data.budgetOwnerEmail = oldLicense.budgetOwnerEmail;
+    for (const field of ["budgetOwnerEmail", "costCentre"]) {
+      if (singlePredecessor && !submittedFields.has(field) && !hasValue(item[field]) && oldLicense[field]) {
+        data[field] = oldLicense[field];
+      }
     }
   }
   // A maintenance line started from a license (e.g. Start support renewal) supports that license.
@@ -2425,7 +2431,7 @@ export function convertPendingOrderToLicenses(order, payload) {
         }
         const itemData = buildPendingOrderItemLicenseData(formData, item, oldLic, submittedFields);
         itemData.sourceSourcingItemId = item.id;
-        requireBudgetOwnerForSplitCoterm(item, itemData);
+        requireChoicesForSplitCoterm(item, itemData);
         const { successor, predecessorIds: marked } = createRenewalSuccessorFromSourcingItem(item, itemData);
         newLicenseEntries.push([successor, "renewed"]);
         predecessorIds.push(...marked);
@@ -2512,7 +2518,7 @@ export function batchConvertPendingOrderToLicenses(order, payload) {
       && sourcingItem.maintenanceParentLicenseId != null) {
       itemData.parentLicenseId = sourcingItem.maintenanceParentLicenseId;
     }
-    requireBudgetOwnerForSplitCoterm(sourcingItem, itemData, `Item ${batchItem.sourcingItemId}: `);
+    requireChoicesForSplitCoterm(sourcingItem, itemData, `Item ${batchItem.sourcingItemId}: `);
 
     if (sourcingItem.renewalForLicenseId != null) {
       delete itemData.parentSourcingItemId;
@@ -2772,18 +2778,21 @@ export function startSupportRenewal(parent) {
   return item;
 }
 
-/** Force an explicit budget owner when merged coterm predecessors disagree. */
-function requireBudgetOwnerForSplitCoterm(item, data, detailPrefix = "") {
+/** Mirrors pending_order_conversion_service.py: require explicit split allocation choices. */
+function requireChoicesForSplitCoterm(item, data, detailPrefix = "") {
   const predecessorIds = item.cotermPredecessorIds ?? [];
-  if (predecessorIds.length < 2 || String(data.budgetOwnerEmail ?? "").trim()) return;
-  const owners = new Set(
-    predecessorIds
-      .map((id) => store.licenses.find((license) => license.id === id)?.budgetOwnerEmail)
-      .filter((owner) => owner && owner.trim())
-      .map((owner) => owner.trim().toLowerCase())
-  );
-  if (owners.size > 1) {
-    throw new Error(`${detailPrefix}Choose a budget owner: the merged licenses had different budget owners`);
+  if (predecessorIds.length < 2) return;
+  for (const [field, label] of [["budgetOwnerEmail", "budget owner"], ["costCentre", "cost centre"]]) {
+    if (String(data[field] ?? "").trim()) continue;
+    const values = new Set(
+      predecessorIds
+        .map((id) => store.licenses.find((license) => license.id === id)?.[field])
+        .filter((value) => value && value.trim())
+        .map((value) => value.trim().toLowerCase())
+    );
+    if (values.size > 1) {
+      throw new Error(`${detailPrefix}Choose a ${label}: the merged licenses had different ${label}s`);
+    }
   }
 }
 

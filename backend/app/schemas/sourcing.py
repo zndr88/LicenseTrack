@@ -7,7 +7,7 @@ from pydantic.alias_generators import to_camel
 from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.models.sourcing import SourcingStatus
 from app.schemas.custom_fields import CustomFieldValueItem
-from app.services.money import is_canonical_money
+from app.services.money import validate_canonical_money
 from app.schemas.request_base import RequestModel
 
 
@@ -71,11 +71,8 @@ class SourcingItemCreate(RequestModel):
     )
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
-        if v is None or v == "":
-            return v
-        if isinstance(v, str) and not is_canonical_money(v):
-            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
-        return v
+        return validate_canonical_money(v)
+
 
 class SourcingItemUpdate(RequestModel):
     model_config = ConfigDict(
@@ -133,11 +130,8 @@ class SourcingItemUpdate(RequestModel):
     )
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
-        if v is None or v == "":
-            return v
-        if isinstance(v, str) and not is_canonical_money(v):
-            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
-        return v
+        return validate_canonical_money(v)
+
 
 class SourcingItemResponse(BaseModel):
     model_config = ConfigDict(
@@ -274,11 +268,7 @@ class SourcingRequestItemUpdate(RequestModel):
     @field_validator("quantity", "quantity_per_unit", "estimated_unit_price", "estimated_total_price", mode="before")
     @classmethod
     def _validate_canonical_money(cls, value: object) -> object:
-        if value is None or value == "":
-            return value
-        if isinstance(value, str) and not is_canonical_money(value):
-            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {value!r}.")
-        return value
+        return validate_canonical_money(value)
 
 
 class SourcingRequestUpdate(RequestModel):

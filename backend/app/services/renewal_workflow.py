@@ -215,10 +215,13 @@ def build_pending_order_item_license_data(
     )
     apply_fallback("invoice_number", item.invoice_number)
     apply_fallback("external_ref", item.external_ref)
-    apply_fallback("cost_centre", item.cost_centre, getattr(old_license, "cost_centre", None))
-    # The line's stored owner is the truth. Only a single-predecessor line falls
-    # back to that predecessor; merged coterm lines never inherit the primary's owner.
+    # Stored allocation choices are the truth. Merged lines must not inherit
+    # the primary predecessor's cost centre or budget owner.
     single_predecessor = len(item.coterm_predecessor_ids or []) < 2
+    apply_fallback(
+        "cost_centre", item.cost_centre,
+        getattr(old_license, "cost_centre", None) if single_predecessor else None,
+    )
     apply_fallback(
         "budget_owner_email",
         item.budget_owner_email,
