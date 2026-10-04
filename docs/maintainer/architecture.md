@@ -2,6 +2,15 @@
 
 This document records the current architecture conventions. It is not a full design specification; it is a short map for maintainers so future changes do not drift back into duplicated page and route logic.
 
+## Release Identity
+
+Release identity comes from `backend/app/version.py` and
+`frontend/src/version.js`, with matching package and deployment versions.
+`frontend/build/buildMetadata.js` derives the sidebar build label: matching
+release tags show the version; other Git builds show the branch, commit and
+dirty state. Builds without Git metadata use the version unless explicit
+`LT_BUILD_REF` and `LT_BUILD_SHA` metadata is supplied.
+
 ## Frontend Runtime Baseline
 
 The frontend runtime baseline is React 19 and ReactDOM 19. `frontend/src/main.jsx`
@@ -329,11 +338,13 @@ Import mapping presets are shared configuration. Editors may list and use preset
 
 Existing custom fields participate in both import paths. Native preview/confirm loads definitions and resolves headers by immutable `field_key` first and by normalized display name only when that name is unambiguous; native and ignored headers retain precedence. External analysis reports those same matches automatically, and unresolved columns may be assigned to an existing definition. Only admins may create definitions. Native and mapped values share `custom_fields_service` validation/upsert behavior, including typed row errors and nonblank-only patches during LT-Ref updates.
 
-External analysis may receive several source columns that resemble the same
-native field. Stronger header aliases keep precedence, weak fallback aliases
-such as `item` do not override exact fields such as `software_description`, and
-duplicate recognized columns are returned as available mapping candidates
-instead of being hidden.
+Native import, mapped analysis and registry export share the field catalog in
+`backend/app/services/csv_fields.py`. It owns headers, aliases, ignored fields
+and export selection; the frontend consumes its export header map. `Item` is
+an alias for PO line number, not software description. External analysis may
+receive several source columns that resemble the same native field. Stronger
+header aliases keep precedence, and duplicate recognized columns are returned
+as available mapping candidates instead of being hidden.
 
 Native and mapped import fields should stay aligned with the current editable
 license model. In addition to core commercial fields, CSV import supports
@@ -384,6 +395,13 @@ to unlink an update target, and is the only import path allowed to persist
 ## Forms And Validation
 
 New or migrated complex forms should use React Hook Form and Zod.
+
+Price, quantity and cost controls use `frontend/src/components/ui/NumberInput.jsx`
+and the shared numeric input helpers. Localized user input becomes a canonical
+decimal at the boundary; persisted values must never be reinterpreted under a
+display locale. `backend/app/services/money.py` owns canonical decimal parsing,
+the money predicate and the shared schema validator. Line amount derivation
+remains in `lineAmount.js`, rather than individual forms.
 
 - Procurement form schemas live in `frontend/src/utils/procurementSchemas.js`.
 - Settings validation schemas live in `frontend/src/utils/settingsSchemas.js`.
@@ -436,6 +454,14 @@ mutation boundary; `frontend/src/api/referenceData.js`,
 `components/ui/ReferenceCombobox.jsx`, and
 `components/settings/sections/ReferenceDataSection.jsx` own the frontend data
 access, selection, and admin catalog surfaces respectively.
+
+Before startup migrations, `main.py` calls
+`backup_service.create_pre_migration_snapshot` to protect an existing SQLite
+database whose schema needs upgrading. It keeps the newest three snapshots in
+`pre-upgrade/` beside the database and reuses the first recent snapshot of the
+same revision after a failed upgrade. Snapshot failure stops startup before
+migration. This database-only safety net does not replace a full deployment
+backup for rollback.
 
 The restore flow in `backend/app/routes/backup.py` must quiesce all database connections before swapping the file: `await db.close()` closes the request-scoped session, then `await engine.dispose()` drains the connection pool, then `backup_service.restore_backup()` deletes stale `-wal`/`-shm` files and replaces the `.db` file. When `RESTART_AFTER_RESTORE=true`, the route schedules `os.kill(SIGTERM)` after the response so a process manager can restart the API. The native systemd unit deliberately uses `Restart=always`: SIGTERM is a clean process exit, so `Restart=on-failure` leaves the service stopped after a successful restore. Native upgrades must republish and reload the current service template so lifecycle-policy fixes reach existing installs. Do not reorder or remove these steps - out-of-order execution leaves file handles open (Windows) or stale WAL pages that corrupt the restored database on restart.
 
@@ -618,6 +644,13 @@ Current important service boundaries:
 - pending-order conversion response enrichment: `backend/app/services/conversion_response_service.py`;
 - license procurement trail response assembly:
   `backend/app/services/license_procurement_trail_service.py`;
+- PO line allocation, preservation and non-reuse:
+  `backend/app/services/po_line_service.py`; `po_line_register` stores issued
+  numbers per normalized PO, and converted licenses share their source line's
+  register entry;
+- notice-date reminder reset:
+  `backend/app/services/notice_reminder_rules.py`, shared by ordinary updates,
+  field patches and CSV updates;
 - native CSV decoding and row classification:
   `backend/app/services/csv_importer.py`; native and mapped parsers share raw
   row assembly while retaining separate field-presence rules and the typed

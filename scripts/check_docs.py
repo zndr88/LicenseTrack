@@ -73,8 +73,11 @@ def check_release_references() -> list[str]:
             f"frontend/src/version.js: version {frontend_match.group(1)} does not match {version}"
         )
 
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    if not any(line in readme.splitlines() for line in (f"Version {version}.", f"## LicenseTrack {version}")):
+        errors.append(f"README.md: missing current release reference {version!r}")
+
     required_fragments = {
-        "README.md": [f"Version {version}."],
         "mkdocs.yml": [f'docs_version: "{version}"'],
         "docker-compose.yml": [f"image: license-lifecycle-system:{version}"],
         "wiki/getting-started/installation.md": [

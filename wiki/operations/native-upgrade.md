@@ -4,6 +4,12 @@ This procedure applies only to instances installed by LicenseTrack's native inst
 
 ## Upgrade
 
+Before upgrading to 1.2.0, review the shared
+[migration and compatibility notes](upgrade.md#upgrading-to-120), including
+historical PO line numbers, corrected maintenance prices and integration
+changes. The native procedure below supplies the full pre-upgrade backup and
+automatic rollback for native installations.
+
 Download and verify the target native release archive, then run its upgrade entrypoint:
 
 ```bash

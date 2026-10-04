@@ -85,11 +85,12 @@ Some protections depend on correct deployment configuration:
 
 ## Known limitations
 
-- Session tokens (JWTs) are stateless and cannot be individually revoked before
-  they expire; logout clears the session cookie. Keep `TOKEN_EXPIRY` reasonable
-  and rotate `JWT_SECRET` to invalidate all outstanding sessions if needed. The
-  session cookie is `HttpOnly`, which — together with the Content-Security-Policy
-  — limits token theft via cross-site scripting.
+- Human session tokens (JWTs) are checked against independently revocable
+  server-side login identities. Logout and inactivity revoke the current
+  login; password and account security changes invalidate older credentials.
+  Keep `TOKEN_EXPIRY` reasonable. The session cookie is `HttpOnly`, which,
+  together with the Content-Security-Policy, limits token theft via cross-site
+  scripting. Cookie-authenticated writes require `X-LicenseTrack-Request: 1`.
 
 - Official Extensions are trusted application code. Managed processes,
   declared permissions, callback tokens, environment allow-listing, and

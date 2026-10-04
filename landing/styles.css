@@ -322,6 +322,88 @@ figcaption {
   padding: 16px 0 0;
 }
 
+.trailer-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.trailer-heading span:first-child {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.trailer-preview {
+  scroll-margin-top: 100px;
+}
+
+.trailer-preview video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1920 / 1022;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  background: #17191c;
+}
+
+.trailer-preview figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.trailer-preview figcaption a {
+  flex-shrink: 0;
+}
+
+.release-section {
+  padding: 48px clamp(16px, 5vw, 72px) 40px;
+  border-top: 1px solid var(--border-strong);
+}
+
+.release-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.release-intro .text-link {
+  flex-shrink: 0;
+}
+
+.release-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 56px);
+  margin: 36px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.release-highlights li {
+  border-top: 1px solid var(--border-strong);
+  padding-top: 16px;
+}
+
+.release-highlights h3 {
+  margin-top: 12px;
+}
+
+.release-highlights p {
+  margin-top: 12px;
+  color: var(--text-2);
+}
+
+.release-upgrade {
+  margin-top: 28px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
 .browser-frame {
   border: 1px solid var(--border-strong);
   border-radius: var(--rl);
@@ -588,6 +670,15 @@ figcaption {
 }
 
 @media (max-width: 720px) {
+  .release-intro, .trailer-preview figcaption {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .release-highlights {
+    grid-template-columns: 1fr;
+  }
+
   html {
     scroll-padding-top: 136px;
   }

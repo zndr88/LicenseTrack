@@ -15,7 +15,18 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
-Work in progress for 1.2.0.
+## [1.2.0] - 2026-10-04
+
+This release adds Registry grouping and generated PO line numbers, unifies
+numeric input and line totals, and improves maintenance, CSV round trips and
+procurement evidence handling. It is the first release under the Semantic
+Versioning policy described in [VERSIONING.md](VERSIONING.md).
+
+Five migrations run automatically on startup. Before upgrading, keep a full
+backup of the database, documents and configuration. Review the
+[upgrade guide](wiki/operations/upgrade.md#upgrading-to-120) for historical PO
+line reconciliation, maintenance price corrections, custom upload extension
+lists and integration changes.
 
 ### Added
 
@@ -2014,7 +2025,9 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.1.23...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/zndr88/LicenseTrack/compare/v1.1.24...v1.2.0
+[1.1.24]: https://github.com/zndr88/LicenseTrack/compare/v1.1.23...v1.1.24
 [1.1.23]: https://github.com/zndr88/LicenseTrack/compare/v1.1.22...v1.1.23
 [1.1.22]: https://github.com/zndr88/LicenseTrack/compare/v1.1.21...v1.1.22
 [1.1.21]: https://github.com/zndr88/LicenseTrack/compare/v1.1.20...v1.1.21

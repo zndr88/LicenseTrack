@@ -153,6 +153,10 @@ The frontend is a React/Vite JavaScript app. Keep the current architecture and i
 - Generic catch-all helpers should not grow further. Prefer focused modules over adding to `helpers.js`.
 - Report calculations are domain logic; treat them as report calculation modules, not casual helpers.
 - Shared validation should use centralized Zod schemas or validator utilities rather than per-component regex copies.
+- Numeric form fields use the shared `NumberInput` and numeric input helpers.
+  Parse localized text only at the input boundary; keep persisted decimals
+  canonical and derive line totals through `lineAmount.js`. Backend schemas
+  reuse the money validator in `services/money.py`.
 
 ### Inline Styles
 
@@ -208,6 +212,9 @@ Match test effort to risk.
 - Tests should exercise the canonical owner or the supported public boundary;
   do not keep a removed private wrapper alive only to satisfy a test import.
 - Frontend workflow changes should cover the user path with component or integration tests when practical.
+- Keep frontend tests deterministic without automatic retries. Use atomic
+  `fireEvent.change` for date and required form inputs, and wait for the
+  user-visible result of asynchronous submission or lazy section loading.
 - Demo-mode behavior should stay tested, especially the guarantee that demo-only behavior is isolated from normal production builds.
 - When compatibility leaves more than one persisted ownership or scope marker on a
   record, define precedence in one canonical resolver and exercise that precedence
@@ -222,6 +229,10 @@ Any AI-assisted change should follow the same contract.
 - State the intended scope before making broad changes.
 - Prefer established local helpers over inventing new patterns.
 - Keep diffs scoped to the milestone.
+- Before changing a shared rule, search backend, frontend and demo code for
+  other implementations. Record its canonical owner and the action taken on
+  other implementations in the pull request's single-owner audit. Literal
+  duplicates use guard tests built on `backend/tests/single_owner.py`.
 - Do not mix formatting, refactoring, behavior changes, and version bumps in one commit unless explicitly planned.
 - Preserve user or existing work in the tree. Never revert unrelated changes to make a patch easier.
 - If the best style is unclear, choose the least invasive option and document the follow-up rather than improvising a new convention.

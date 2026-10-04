@@ -29,6 +29,62 @@ retrying the upgrade.
 
 ## Before upgrading
 
+### Upgrading to 1.2.0
+
+When upgrading from 1.1.24, five migrations run through the normal startup
+process:
+
+- `e6f7a8b9c0d2`: widens the document category column to fit every category.
+- `a7c3e91b5d24`: adds claims that prevent concurrent evidence transfers on
+  pending orders.
+- `5f0abf342086`: creates the PO line register and assigns line numbers to
+  existing licenses and pending-order lines with a PO number. A converted
+  license shares its source line's number when their normalized PO matches.
+- `2ce70b265de2`: adds the per-user Portfolio overview visibility setting,
+  enabled by default.
+- `ed0290d95ac3`: corrects maintenance records with the signature of the old
+  Add Maintenance pricing bug, where a coverage cost was stored as a unit
+  price for a quantity greater than one. It also corrects the active
+  maintenance cost mirrored on covered licenses.
+
+Keep a full pre-upgrade backup of the data volume and `.env`. The automatic
+`pre-upgrade/` snapshot contains only the database; it does not include
+documents or configuration. Rollback must restore the previous application
+with its matching backup. An Alembic downgrade removes the new PO line
+register, evidence claims and visibility setting, and does not undo the
+maintenance price correction.
+
+Review these changes before relying on the upgraded data or integrations:
+
+- Historical PO line numbers are assigned in creation order per normalized
+  PO number, ignoring case and repeated or surrounding whitespace. They may
+  differ from the original purchasing system's line numbers; reconcile them
+  before matching external records by PO number and line.
+- Line Total is quantity × unit price. The deprecated `totalPoPrice` API field
+  is still accepted and returned but no longer used, and is scheduled for
+  removal in 1.3.0. Use a manual PO total for a negotiated order value.
+- CSV import reads `Item` as a PO line number. If an existing file uses `Item`
+  for product text, map it to Software Description or rename it to
+  `Description`. Imports with a blank currency now require acknowledgement
+  of the default currency shown in the preview.
+- Numeric API values must be plain decimals, without localized separators.
+  Unknown request fields are logged; `STRICT_REQUEST_FIELDS=true` rejects
+  them with 422. Integrations should send only documented fields.
+- Scripts writing through a browser session cookie must send
+  `X-LicenseTrack-Request: 1`. API-token and bearer requests are unaffected.
+- Customized `ALLOWED_UPLOAD_EXTENSIONS` values must include `.lic,.msg` to
+  accept these new document types. Native installations using the previous
+  default list gain them automatically; customized lists are preserved.
+- Reverse-proxy deployments should configure `FORWARDED_ALLOW_IPS` as
+  described in the [deployment guide](deployment.md) so sign-in throttling
+  uses the client address.
+
+After upgrading, confirm `/api/health` reports `1.2.0`, review historical PO
+lines and corrected maintenance totals, and smoke-test CSV import/export,
+procurement conversion and document downloads. If an older conversion reports
+a missing invoice, upload it on the pending order and retry evidence transfer.
+Upgrades from earlier versions must also follow the guidance below.
+
 ### Upgrading to 1.1.24
 
 This release adds five migrations. All of them add new columns and run through
@@ -147,7 +203,7 @@ curl http://localhost:8080/api/health
 The health response should include the expected version:
 
 ```json
-{"status":"ok","version":"1.1.24"}
+{"status":"ok","version":"1.2.0"}
 ```
 
 Log in and smoke-test license listing, document downloads, settings, backup listing, and any configured SMTP/OIDC integrations.
@@ -220,7 +276,7 @@ podman rm licensetrack
 Build the new image from the release source:
 
 ```bash
-podman build -t license-lifecycle-system:1.1.24 .
+podman build -t license-lifecycle-system:1.2.0 .
 ```
 
 Start the new container with the same volume mounted at `/data`:
@@ -229,7 +285,7 @@ Start the new container with the same volume mounted at `/data`:
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.1.24
+  license-lifecycle-system:1.2.0
 ```
 
 Check health:

@@ -1,7 +1,5 @@
 # LicenseTrack
 
-Version 1.1.24.
-
 LicenseTrack is a self-hosted software license procurement and lifecycle
 management system. It helps organisations track software requests through
 sourcing, purchasing, entitlement, renewal, and retirement.
@@ -12,7 +10,16 @@ source of truth and audit trail that general ordering tools usually do not.
 LicenseTrack is source-available software. See [Licensing](#licensing) before
 using, modifying, or redistributing it.
 
-![LicenseTrack license overview dashboard](docs/images/dashboard.png)
+## LicenseTrack 1.2.0
+
+[![LicenseTrack portfolio overview from the 1.2.0 trailer](landing/media/portfolio.gif)](https://zndr88.github.io/LicenseTrack/#release-trailer)
+
+[Watch the release trailer](https://zndr88.github.io/LicenseTrack/#release-trailer).
+
+Version 1.2.0 adds Registry grouping and generated PO line numbers, with
+improvements to maintenance, numeric input, CSV import/export and procurement
+evidence handling. See the [release notes](CHANGELOG.md#120---2026-10-04)
+and [upgrade guide](wiki/operations/upgrade.md#upgrading-to-120).
 
 > [!TIP]
 > [Try the hosted demo](https://zndr88.github.io/LicenseTrack/demo/) before
@@ -41,21 +48,30 @@ around that workflow.
 
 ## What LicenseTrack Does
 
-![Sourcing requests and pending orders](docs/images/procurement.png)
-
 - Tracks requests, quotes, suppliers, costs, and documents through sourcing and
   pending orders.
 - Converts completed purchases into active license records while preserving
   their procurement history.
 - Handles paid licenses, freeware and open-source entitlements, included
   maintenance, and separately purchased maintenance.
-- Maintains a searchable license registry with custom fields, completeness
-  checks, documents, contracts, secondary renewal contacts, and audit history.
+- Maintains a searchable license registry with column grouping, generated PO
+  line numbers, custom fields, completeness checks, documents, contracts,
+  secondary renewal contacts, and audit history.
+
+    ![Grouping the Registry by publisher and PO number](landing/media/registry-grouping.gif)
+
+    *Group the Registry and review the purchase lines within each group.*
+
 - Governs companies and cost centres as canonical reference data with aliases,
   role-aware selection, safe merges, and synchronized display names.
 - Carries renewals through sourcing and purchasing while preserving the license
   chain, supporting coterm opportunities, and adopting an already-purchased
   same-publisher license as the successor when appropriate.
+
+    ![Exploring the license renewal chain and earlier terms](landing/media/renewal-history.gif)
+
+    *Follow a license through its terms and back to the purchase evidence.*
+
 - Provides CSV import and export, including mapped imports from external tools,
   reference-data review, legacy-unlinked maintenance recovery, shared PO-value
   overrides, perpetual-maintenance and purchase-order trackers, operational
@@ -146,7 +162,7 @@ See the [integration overview](docs/extension-authors/overview.md) and
 ## Project Direction
 
 LicenseTrack is under active development. The current focus is strengthening
-the 1.1.x foundation, preparing the first Official Extension for document
+the 1.2.x foundation, preparing the first Official Extension for document
 processing, and expanding native Linux validation.
 
 Delivered changes are recorded in the [changelog](CHANGELOG.md). 

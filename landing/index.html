@@ -16,6 +16,7 @@
       </a>
       <nav aria-label="Primary">
         <a class="nav-link active" href="./" aria-current="page">Overview</a>
+        <a class="nav-link" href="#release">What's new</a>
         <a class="nav-link" href="docs/">Docs</a>
         <a class="nav-link" href="#demo-tour">Demo guide</a>
         <a class="nav-link" href="https://github.com/zndr88/LicenseTrack">GitHub</a>
@@ -31,9 +32,9 @@
     <main id="main" tabindex="-1">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="eyebrow">For license and procurement teams</p>
+          <p class="eyebrow">Introducing LicenseTrack 1.2.0</p>
           <h1 id="hero-title">Keep every software purchase connected to its renewal.</h1>
-          <p class="lead">Track quotes, purchase orders, entitlements, and renewal history in one self-hosted workspace. Built from day-to-day license-management work.</p>
+          <p class="lead">Track quotes, purchase orders, entitlements, and renewal history in one self-hosted workspace. Now with Registry grouping, generated PO line numbers and more dependable maintenance workflows.</p>
           <div class="hero-actions">
             <a class="btn btn-p" href="demo/">Try the demo</a>
             <a class="btn btn-g" href="docs/getting-started/prerequisites/">Install LicenseTrack</a>
@@ -41,15 +42,27 @@
           <p class="demo-note">No installation needed for the demo. Sign-in is prefilled; sample changes reset on refresh or logout. <a href="docs/evaluate/demo-walkthrough/#demo-limits">See demo limits</a>.</p>
           <p class="license-note">Source-available &middot; Docker Compose or native Linux &middot; <a href="https://github.com/zndr88/LicenseTrack#licensing">Licensing</a></p>
         </div>
-        <figure class="hero-preview">
-          <div class="browser-frame">
-            <div class="frame-top"><span class="frame-path">License Overview &middot; demo sample data</span></div>
-            <a href="images/demo-overview.jpg" aria-label="View the full license overview screenshot">
-              <img src="images/demo-overview.jpg" alt="License registry with coverage states, ownership, purchase references, and upcoming renewal attention items" width="1270" height="714" fetchpriority="high">
-            </a>
-          </div>
-          <figcaption>See what you own, what needs attention, and where each purchase came from.</figcaption>
+        <figure class="hero-preview trailer-preview" id="release-trailer">
+          <div class="trailer-heading"><span>LicenseTrack 1.2.0</span><span>Release trailer</span></div>
+          <video controls playsinline preload="none" poster="media/licensetrack-1.2.0-poster.jpg" aria-label="LicenseTrack 1.2.0 release trailer" aria-describedby="trailer-caption">
+            <source src="media/licensetrack-1.2.0-trailer.mp4" type="video/mp4">
+            <a href="media/licensetrack-1.2.0-trailer.mp4">Download the LicenseTrack 1.2.0 release trailer</a>.
+          </video>
+          <figcaption id="trailer-caption">A closer look at the record behind every purchase.<a href="media/licensetrack-1.2.0-trailer.mp4">Open trailer</a></figcaption>
         </figure>
+      </section>
+
+      <section class="release-section" id="release" aria-labelledby="release-title">
+        <div class="release-intro">
+          <div><p class="eyebrow">What's new in 1.2.0</p><h2 id="release-title">More clarity. From purchase to renewal.</h2></div>
+          <a class="text-link" href="https://github.com/zndr88/LicenseTrack/blob/main/CHANGELOG.md#120---2026-10-04">Read the release notes &rarr;</a>
+        </div>
+        <ol class="release-highlights">
+          <li><span class="mono" aria-hidden="true">01</span><h3>Organise your Registry.</h3><p>Group by PO, publisher or another column, then add a second level. See line counts, totals by currency and the next end date. Keep the arrangement in a saved view.</p></li>
+          <li><span class="mono" aria-hidden="true">02</span><h3>Trace every PO line.</h3><p>Follow a generated line number from the pending order into the license record and CSV export. Numbers stay unique within each PO and are never reused.</p></li>
+          <li><span class="mono" aria-hidden="true">03</span><h3>Keep maintenance connected.</h3><p>Find and link existing maintenance consistently across dialogs. Carry coverage through renewals, with included-maintenance alerts for budget owners.</p></li>
+        </ol>
+        <p class="release-upgrade">Already running LicenseTrack? <a href="docs/operations/upgrade/#upgrading-to-120">Review the 1.2.0 upgrade guide</a> before updating.</p>
       </section>
 
       <section class="workflow" aria-labelledby="workflow-title">
@@ -100,7 +113,7 @@
           <a class="text-link" href="docs/evaluate/overview/">Check the product's fit &rarr;</a>
         </div>
         <dl class="capability-list">
-          <div><dt>Registry</dt><dd>Search, saved views, custom fields, completeness checks, and CSV import and export.</dd></div>
+          <div><dt>Registry</dt><dd>Search, column grouping, saved views, PO line numbers, custom fields, completeness checks, and CSV import and export.</dd></div>
           <div><dt>Evidence</dt><dd>Quotes, purchase orders, invoices, entitlements, and contracts linked to the right records.</dd></div>
           <div><dt>Reports</dt><dd>Spend, publisher and supplier views, renewal calendars, and PDF exports.</dd></div>
           <div><dt>Administration</dt><dd>Roles, audit history, database backups, optional SSO and email alerts, and API integrations.</dd></div>
