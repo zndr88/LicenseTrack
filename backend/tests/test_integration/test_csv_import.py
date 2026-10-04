@@ -27,6 +27,47 @@ def _make_csv(headers: list[str], rows: list[dict]) -> bytes:
     return buf.getvalue().encode("utf-8")
 
 
+@pytest.mark.parametrize("mapped", [False, True])
+@pytest.mark.parametrize("currency", [None, "  "])
+async def test_defaulted_currency_preview_and_acknowledgement(test_app, auth_headers, mapped, currency):
+    values = {
+        "publisher_name": "Acme", "software_description": "Currency review",
+        "license_type": "freeware", "quantity": "2", "unit_price": "10",
+    }
+    if currency is not None:
+        values["currency"] = currency
+    data = {}
+    if mapped:
+        data["mapping_json"] = json.dumps({"mapping": [
+            {"rawHeader": key, "target": key} for key in values
+        ]})
+    csv_bytes = _make_csv(list(values), [values])
+    preview = await test_app.post(
+        "/api/import/preview-mapped" if mapped else "/api/import/preview",
+        headers=auth_headers, data=data,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    assert body["warningSummary"]["defaultedCurrencyCount"] == 1
+    assert body["warningSummary"]["hasWarnings"] is True
+    assert body["rows"][0]["currency"] == "EUR"
+    assert any("defaulted to EUR" in warning for warning in body["rows"][0]["warnings"])
+    endpoint = "/api/import/execute" if mapped else "/api/import/confirm"
+    rejected = await test_app.post(
+        endpoint, headers=auth_headers, data=data,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert rejected.status_code == 409, rejected.text
+    accepted = await test_app.post(
+        endpoint, headers=auth_headers, data={**data, "acknowledge_warnings": "true"},
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["importedCount"] == 1
+    assert accepted.json()["warningsAcknowledged"] is True
+
+
 def _minimal_payload(**overrides) -> dict:
     base = {
         "publisherName": "Acme Corp",
@@ -42,6 +83,47 @@ def _minimal_payload(**overrides) -> dict:
 
 _FUTURE_START = (date.today() + timedelta(days=30)).isoformat()
 _FUTURE_END = (date.today() + timedelta(days=395)).isoformat()
+
+
+async def test_update_row_without_currency_keeps_existing_currency_without_warning(test_app, auth_headers):
+    existing = await _create_license(test_app, auth_headers, licenseType="freeware", currency="USD")
+    values = {
+        "license_ref": existing["licenseRef"], "publisher_name": existing["publisherName"],
+        "software_description": "Currency kept", "license_type": "freeware",
+    }
+    csv_bytes = _make_csv(list(values), [values])
+    preview = await test_app.post(
+        "/api/import/preview", headers=auth_headers, data={"update_existing": "true"},
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    assert body["rows"][0]["importAction"] == "update"
+    assert body["warningSummary"]["defaultedCurrencyCount"] == 0
+    assert not any("defaulted to" in warning for warning in body["rows"][0]["warnings"])
+    confirmed = await test_app.post(
+        "/api/import/confirm", headers=auth_headers, data={"update_existing": "true"},
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    updated = (await test_app.get(f"/api/licenses/{existing['id']}", headers=auth_headers)).json()
+    assert updated["softwareDescription"] == "Currency kept"
+    assert updated["currency"] == "USD"
+
+
+async def test_skipped_row_with_defaulted_currency_does_not_gate(test_app, auth_headers):
+    headers = ["publisher_name", "software_description", "license_type", "currency"]
+    csv_bytes = _make_csv(headers, [
+        {"publisher_name": "Acme", "software_description": "Kept", "license_type": "freeware", "currency": "EUR"},
+        {"publisher_name": "Acme", "software_description": "Skipped", "license_type": "freeware"},
+    ])
+    response = await test_app.post(
+        "/api/import/confirm", headers=auth_headers,
+        data={"skipped_rows_json": json.dumps([2])},
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["importedCount"] == 1
 
 
 async def _create_license(client, headers, **overrides) -> dict:
@@ -237,6 +319,7 @@ async def test_confirm_import_maintenance_with_valid_parent_ref_links_license(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("maintenance.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200
@@ -295,6 +378,7 @@ async def test_confirm_import_maintenance_parent_override_links_existing_license
             "row_overrides_json": json.dumps([
                 {"rowNumber": 1, "parentLicenseId": parent["id"]},
             ]),
+            "acknowledge_warnings": "true",
         },
         files={"file": ("maintenance.csv", csv_bytes, "text/csv")},
     )
@@ -451,10 +535,10 @@ async def test_explicit_legacy_action_overrides_same_batch_inference_and_skipped
     db_session,
 ):
     csv_bytes = _make_csv(
-        ["publisher_name", "software_description", "license_type", "contract_number", "po_number"],
+        ["publisher_name", "software_description", "license_type", "contract_number", "po_number", "currency"],
         [
-            {"publisher_name": "Acme", "software_description": "Widget", "license_type": "perpetual", "contract_number": "C-1", "po_number": "P-1"},
-            {"publisher_name": "Acme", "software_description": "Widget - Maintenance", "license_type": "maintenance", "contract_number": "C-1-M", "po_number": "P-1"},
+            {"publisher_name": "Acme", "software_description": "Widget", "license_type": "perpetual", "contract_number": "C-1", "po_number": "P-1", "currency": "EUR"},
+            {"publisher_name": "Acme", "software_description": "Widget - Maintenance", "license_type": "maintenance", "contract_number": "C-1-M", "po_number": "P-1", "currency": "EUR"},
         ],
     )
     response = await test_app.post(
@@ -592,6 +676,7 @@ async def test_confirm_import_persists_request_and_purchase_dates(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("milestones.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -639,6 +724,7 @@ async def test_confirm_import_persists_secondary_contacts_from_aliases(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("secondary-contacts.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -692,7 +778,7 @@ async def test_execute_mapped_combines_secondary_contact_columns(
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("mapped-secondary-contacts.csv", csv_bytes, "text/csv")},
-        data={"mapping_json": mapping_json},
+        data={"mapping_json": mapping_json, "acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -744,6 +830,7 @@ async def test_native_confirm_imports_existing_typed_custom_field(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("native-custom.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
     assert confirm.status_code == 200, confirm.text
     assert confirm.json()["importedCount"] == 1
@@ -789,7 +876,7 @@ async def test_native_confirm_parses_declared_date_format_for_custom_date_field(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("native-custom-date.csv", csv_bytes, "text/csv")},
-        data={"date_format": "DD/MM/YYYY"},
+        data={"date_format": "DD/MM/YYYY", "acknowledge_warnings": "true"},
     )
     assert confirm.status_code == 200, confirm.text
     assert confirm.json()["importedCount"] == 1
@@ -839,6 +926,7 @@ async def test_native_confirm_uses_saved_date_format_for_custom_date_field(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("native-custom-default-date.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
     assert confirm.status_code == 200, confirm.text
     assert confirm.json()["importedCount"] == 1
@@ -891,7 +979,7 @@ async def test_execute_mapped_parses_declared_date_format_for_custom_date_field(
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("mapped-custom-date.csv", csv_bytes, "text/csv")},
-        data={"mapping_json": mapping_json, "date_format": "DD/MM/YYYY"},
+        data={"mapping_json": mapping_json, "date_format": "DD/MM/YYYY", "acknowledge_warnings": "true"},
     )
     assert execute.status_code == 200, execute.text
     assert execute.json()["importedCount"] == 1
@@ -949,7 +1037,7 @@ async def test_execute_mapped_uses_saved_date_format_for_custom_date_field(
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("mapped-custom-default-date.csv", csv_bytes, "text/csv")},
-        data={"mapping_json": mapping_json},
+        data={"mapping_json": mapping_json, "acknowledge_warnings": "true"},
     )
     assert execute.status_code == 200, execute.text
     assert execute.json()["importedCount"] == 1
@@ -1033,6 +1121,7 @@ async def test_confirm_import_maintenance_with_missing_parent_ref_errors(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("maintenance.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200
@@ -1224,6 +1313,7 @@ async def test_confirm_import_maintenance_with_subscription_parent_ref_errors(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("maintenance.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200
@@ -1268,6 +1358,7 @@ async def test_confirm_import_maintenance_with_retired_parent_ref_errors(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("maintenance.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200
@@ -1311,7 +1402,7 @@ async def test_execute_import_maintenance_with_valid_parent_ref_links_license(
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("maintenance.csv", csv_bytes, "text/csv")},
-        data={"mapping_json": json.dumps({"mapping": mapping})},
+        data={"mapping_json": json.dumps({"mapping": mapping}), "acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200
@@ -1781,6 +1872,7 @@ async def test_confirm_normalizes_end_date_for_perpetual_license(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("perpetual.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -1811,6 +1903,7 @@ async def test_confirm_normalizes_end_date_for_oem_license(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("oem.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -1861,6 +1954,7 @@ async def test_confirm_maps_perpetual_included_support_dates_and_defaults_cost(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("perpetual-support.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -1909,7 +2003,7 @@ async def test_confirm_imports_2099_end_date_as_perpetual_warning(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("perpetual-sentinel.csv", csv_bytes, "text/csv")},
-        data={"date_format": "DD/MM/YYYY"},
+        data={"date_format": "DD/MM/YYYY", "acknowledge_warnings": "true"},
     )
 
     assert confirm.status_code == 200, confirm.text
@@ -1946,7 +2040,7 @@ async def test_confirm_import_skips_user_selected_rows(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("licenses.csv", csv_bytes, "text/csv")},
-        data={"skipped_rows_json": json.dumps([2])},
+        data={"skipped_rows_json": json.dumps([2]), "acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200
@@ -1995,6 +2089,7 @@ async def test_execute_import_skips_user_selected_rows(
         data={
             "mapping_json": json.dumps({"mapping": mapping}),
             "skipped_rows_json": json.dumps([1]),
+            "acknowledge_warnings": "true",
         },
     )
 
@@ -2065,6 +2160,7 @@ async def test_execute_import_custom_fields_uses_shared_normalization(
         data={
             "mapping_json": json.dumps({"mapping": mapping}),
             "number_format_locale": "nl-BE",
+            "acknowledge_warnings": "true",
         },
     )
 
@@ -2123,7 +2219,7 @@ async def test_execute_import_custom_field_key_is_not_double_prefixed(
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("custom_field_prefix.csv", csv_bytes, "text/csv")},
-        data={"mapping_json": json.dumps({"mapping": mapping})},
+        data={"mapping_json": json.dumps({"mapping": mapping}), "acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200
@@ -2295,7 +2391,7 @@ async def test_execute_import_audit_detail_contains_import_mode_mapped_csv(
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("licenses.csv", csv_bytes, "text/csv")},
-        data={"mapping_json": mapping_json},
+        data={"mapping_json": mapping_json, "acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -2458,7 +2554,7 @@ async def test_confirm_import_parses_declared_belgian_locale(
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("licenses.csv", csv_bytes, "text/csv")},
-        data={"number_format_locale": "nl-BE", "date_format": "DD/MM/YYYY"},
+        data={"number_format_locale": "nl-BE", "date_format": "DD/MM/YYYY", "acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -2499,6 +2595,7 @@ async def test_confirm_import_persists_quantity_per_unit_from_effective_quantity
         "/api/import/confirm",
         headers=auth_headers,
         files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    data={"acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text
@@ -2577,13 +2674,10 @@ async def test_confirm_import_with_warnings_returns_409_without_acknowledgement(
         files={"file": ("warn.csv", csv_bytes, "text/csv")},
         data={"acknowledge_warnings": "false"},
     )
-    # Currency defaulting alone does NOT gate (has_warnings is False), so 200.
-    # Use an inferred-parent warning to properly trigger the gate.
-    # For this test we just confirm that a bad enum no longer gates as a warning.
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["importedCount"] == 1
-    assert body["warningSummary"]["defaultedEnumCount"] == 0
+    assert resp.status_code == 409
+    summary = resp.json()["detail"]["warningSummary"]
+    assert summary["defaultedCurrencyCount"] == 1
+    assert summary["hasWarnings"] is True
 
 
 async def test_confirm_import_with_warnings_succeeds_with_acknowledgement(

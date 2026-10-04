@@ -102,3 +102,20 @@ test("a license exported with Export Full Data comes back unchanged through the 
   expect(Number(restored.maintenanceCost)).toBe(15);
   expect(restored.maintenanceEndDate).toBe("2027-01-01");
 });
+
+
+test("a missing CSV currency is shown and must be acknowledged", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Import" }).or(page.getByRole("link", { name: "Import" })).first().click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "missing-currency.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("publisher_name,software_description,license_type,quantity,unit_price\nE2E Publisher,E2E Currency Review,freeware,2,10\n"),
+  });
+  await expect(page.getByText(/Currency was blank or missing; defaulted to EUR/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Import \d+ licenses?$/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Acknowledge warnings and import/ }).click();
+  await expect(page.getByText("Import complete")).toBeVisible();
+  const imported = await findLicense(page, "E2E Currency Review");
+  expect(imported.currency).toBe("EUR");
+});

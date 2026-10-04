@@ -203,7 +203,7 @@ async def test_execute_import_valid_csv(test_app, auth_headers):
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("data.csv", _simple_csv(), "text/csv")},
-        data={"mapping_json": json.dumps({"mapping": _simple_mapping()})},
+        data={"mapping_json": json.dumps({"mapping": _simple_mapping()}), "acknowledge_warnings": "true"},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -241,6 +241,7 @@ async def test_execute_import_parses_declared_belgian_locale(
             "mapping_json": json.dumps({"mapping": mapping}),
             "number_format_locale": "nl-BE",
             "date_format": "DD/MM/YYYY",
+            "acknowledge_warnings": "true",
         },
     )
 
@@ -293,7 +294,7 @@ async def test_execute_import_skip_target_ignored(test_app, auth_headers):
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("data.csv", csv_bytes, "text/csv")},
-        data={"mapping_json": json.dumps({"mapping": mapping})},
+        data={"mapping_json": json.dumps({"mapping": mapping}), "acknowledge_warnings": "true"},
     )
     assert resp.status_code == 200
     assert resp.json()["importedCount"] == 1
@@ -307,7 +308,8 @@ async def test_execute_import_saves_mapping_name(test_app, auth_headers):
         data={
             "mapping_json": json.dumps(
                 {"mapping": _simple_mapping(), "mappingName": "Auto Saved"}
-            )
+            ),
+            "acknowledge_warnings": "true",
         },
     )
     assert resp.status_code == 200
@@ -324,7 +326,7 @@ async def test_execute_import_upserts_existing_mapping(test_app, auth_headers):
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("data.csv", _simple_csv(), "text/csv")},
-        data={"mapping_json": json.dumps({"mapping": _simple_mapping(), "mappingName": "Upsert Me"})},
+        data={"mapping_json": json.dumps({"mapping": _simple_mapping(), "mappingName": "Upsert Me"}), "acknowledge_warnings": "true"},
     )
 
     # Second execute with same name — should update, not 409
@@ -333,7 +335,7 @@ async def test_execute_import_upserts_existing_mapping(test_app, auth_headers):
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("data.csv", _simple_csv(), "text/csv")},
-        data={"mapping_json": json.dumps({"mapping": new_mapping, "mappingName": "Upsert Me"})},
+        data={"mapping_json": json.dumps({"mapping": new_mapping, "mappingName": "Upsert Me"}), "acknowledge_warnings": "true"},
     )
     assert resp.status_code == 200
 
@@ -403,7 +405,7 @@ async def test_execute_import_does_not_store_a_total_po_price_mapping(test_app, 
         "/api/import/execute",
         headers=auth_headers,
         files={"file": ("data.csv", csv_bytes, "text/csv")},
-        data={"mapping_json": json.dumps({"mapping": mapping})},
+        data={"mapping_json": json.dumps({"mapping": mapping}), "acknowledge_warnings": "true"},
     )
 
     assert resp.status_code == 200, resp.text

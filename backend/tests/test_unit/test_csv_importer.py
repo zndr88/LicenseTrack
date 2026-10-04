@@ -1183,7 +1183,7 @@ def test_build_warning_summary_currency_defaulted():
     summary = build_warning_summary([row])
     assert summary.defaulted_currency_count == 1
     assert summary.rows_with_warnings_count == 1
-    assert summary.has_warnings is False  # currency does NOT gate
+    assert summary.has_warnings is True
 
 
 def test_build_warning_summary_price_mismatch_gates():

@@ -381,11 +381,24 @@ def expand_skipped_inferred_rows(rows: list[ParsedRow], skipped_rows: set[int]) 
     return effective_skips
 
 
+def _currency_needs_confirmation(row: ParsedRow, skipped_rows: set[int] | None = None) -> bool:
+    """A defaulted currency matters only on a row that creates a license.
+
+    An update row without a currency keeps the record's existing currency, and
+    a skipped row is not imported.
+    """
+    return (
+        row.currency_defaulted
+        and row.import_action == "create"
+        and not (skipped_rows and row.row_number in skipped_rows)
+    )
+
+
 def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None = None) -> ImportWarningSummary:
     """Compute per-category warning counts across all parsed rows.
 
     Only non-error rows are counted for rows_with_warnings_count.
-    Inferred-parent, duplicate, price-mismatch, and expired-maintenance
+    Defaulted-currency, inferred-parent, duplicate, price-mismatch, and expired-maintenance
     warnings drive has_warnings. The enum and date fields remain zero-valued
     response compatibility fields because invalid enums and dates are hard row
     errors.
@@ -406,7 +419,7 @@ def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None =
 
         row_has_any_warning = False
 
-        if row.currency_defaulted:
+        if _currency_needs_confirmation(row, skipped_rows):
             defaulted_currency += 1
             row_has_any_warning = True
 
@@ -451,9 +464,15 @@ def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None =
 
 
 def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
+    warnings = list(row.warnings)
+    if _currency_needs_confirmation(row):
+        warnings.append(
+            f"Currency was blank or missing; defaulted to {row.currency}. Confirm this currency before importing."
+        )
     return CSVImportPreviewRow.model_validate(
         {
             **vars(row),
+            "warnings": warnings,
             "request_date": row.db_request_date.isoformat() if row.db_request_date else None,
             "purchase_date": row.db_purchase_date.isoformat() if row.db_purchase_date else None,
             "inferred_parent_row_number": row.parent_import_row_number,
