@@ -9,6 +9,7 @@ import {
 } from "../hooks/useRenewalWorkflowActions.js";
 import { queryKeys } from "../queryKeys.js";
 import * as licensesApi from "../api/licenses.js";
+import actionsSource from "../hooks/useRenewalWorkflowActions.js?raw";
 
 vi.mock("../api/licenses.js", () => ({
   cancelRenewal: vi.fn(),
@@ -72,6 +73,21 @@ beforeEach(() => {
 });
 
 describe("useRenewalWorkflowActions", () => {
+  test.each(["startRenewal", "startRenewalBundle", "cancelRenewal"])("%s refreshes each affected query once", async (action) => {
+    expect(actionsSource).not.toMatch(/invalidateQueries\(\{\s*queryKey:\s*queryKeys\.licenseStats/);
+    const onPortfolioStateChange = vi.fn();
+    const { result, invalidateSpy } = renderRenewalActions({ onPortfolioStateChange });
+    await act(async () => {
+      await result.current[action](action === "startRenewalBundle" ? [1, 2] : 1);
+    });
+    const keys = invalidateSpy.mock.calls.map(([options]) => JSON.stringify(options.queryKey));
+    expect(keys.filter((key) => key === JSON.stringify(queryKeys.licenseStats))).toHaveLength(1);
+    expect(keys.filter((key) => key === JSON.stringify(queryKeys.renewals))).toHaveLength(1);
+    expect(keys.filter((key) => key === JSON.stringify(queryKeys.notifications))).toHaveLength(1);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(onPortfolioStateChange).toHaveBeenCalledTimes(1);
+  });
+
   test("updates the shared licenses cache when it still has the legacy array shape", () => {
     const queryClient = makeQueryClient();
     queryClient.setQueryData(queryKeys.licenses, [license]);

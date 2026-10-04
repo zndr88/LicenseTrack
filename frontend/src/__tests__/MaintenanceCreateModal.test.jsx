@@ -218,7 +218,7 @@ describe("MaintenanceCreateModal", () => {
             startDate: "2026-01-01",
             endDate: "2026-12-31",
             maintenanceParentIds: [],
-            isRetired: false,
+            isRetired: true,
             isLegacyUnlinkedMaintenance: true,
           },
         ];
@@ -234,6 +234,8 @@ describe("MaintenanceCreateModal", () => {
 
     await user.click(screen.getByRole("tab", { name: /link existing/i }));
     expect(screen.queryByLabelText("Upload Quote Document")).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /LT-2026-0077/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show", exact: true }));
     expect(screen.getByText("Legacy unlinked")).toBeInTheDocument();
     await user.click(screen.getByRole("option", { name: /LT-2026-0077/i }));
     await user.click(screen.getByRole("button", { name: /link existing record/i }));

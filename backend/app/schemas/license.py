@@ -13,7 +13,7 @@ from app.models.license import (
 )
 from app.schemas.custom_fields import CustomFieldValueItem, CustomFieldValueResponse
 from app.services.email_validation import reject_email_crlf
-from app.services.money import is_canonical_money
+from app.services.money import is_canonical_money, validate_canonical_money
 from app.schemas.request_base import RequestModel
 
 
@@ -136,11 +136,7 @@ class LicenseBase(BaseModel):
     )
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
-        if v is None or v == "":
-            return v
-        if isinstance(v, str) and not is_canonical_money(v):
-            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
-        return v
+        return validate_canonical_money(v)
 
     @field_validator("budget_owner_email", mode="before")
     @classmethod
@@ -281,11 +277,7 @@ class LicenseUpdate(RequestModel):
     @field_validator("quantity", "quantity_per_unit", "unit_price", "total_po_price", mode="before")
     @classmethod
     def _validate_canonical_money(cls, v: object) -> object:
-        if v is None or v == "":
-            return v
-        if isinstance(v, str) and not is_canonical_money(v):
-            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
-        return v
+        return validate_canonical_money(v)
 
     @field_validator(
         "publisher_name",
