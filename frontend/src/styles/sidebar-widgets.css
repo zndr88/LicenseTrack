@@ -1,5 +1,5 @@
 /* Sidebar version */
-.sb-version { padding: 8px 16px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
+.sb-version { padding: 8px 16px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-3); font-family: var(--font-mono); overflow-wrap: anywhere; }
 
 /* Sidebar portfolio overview widget */
 .sb-portfolio {
