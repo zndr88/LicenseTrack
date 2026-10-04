@@ -71,7 +71,9 @@ Review these changes before relying on the upgraded data or integrations:
   Unknown request fields are logged; `STRICT_REQUEST_FIELDS=true` rejects
   them with 422. Integrations should send only documented fields.
 - Scripts writing through a browser session cookie must send
-  `X-LicenseTrack-Request: 1`. API-token and bearer requests are unaffected.
+  `X-LicenseTrack-Request: 1`, including on `/api/auth/logout`. The built-in
+  browser client already sends this header. API-token and bearer requests
+  are unaffected.
 - Customized `ALLOWED_UPLOAD_EXTENSIONS` values must include `.lic,.msg` to
   accept these new document types. Native installations using the previous
   default list gain them automatically; customized lists are preserved.

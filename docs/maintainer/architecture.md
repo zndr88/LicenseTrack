@@ -987,10 +987,18 @@ session-generation counter to ignore stale authentication responses. Activity,
 lock, and expiry metadata are shared through localStorage; bearer credentials
 are shared through BroadcastChannel and retained only in memory.
 
-Session-cookie requests that change data (POST, PUT, PATCH, DELETE) must carry the
+Session-cookie requests that change data (POST, PUT, PATCH, DELETE), including
+sign-out, must carry the
 `X-LicenseTrack-Request: 1` header. The frontend API client always sends it; bearer and
 API-token requests don't need it. The header forces a CORS preflight, so other sites
 can't make a signed-in browser send writes.
+
+`dependencies.require_session_request_header` owns this check for authenticated
+routes and cookie sign-out. `services/auth_attempt_tracking.py` owns the shared
+10,000-key cap and expired-entry pruning for local and OIDC sign-in counters.
+The routes retain their attempt limits and windows. OIDC reserves an attempt
+before awaiting its callback and releases successful attempts, removing empty
+entries; failed and in-flight attempts share the same limit.
 
 ### Session state machine
 

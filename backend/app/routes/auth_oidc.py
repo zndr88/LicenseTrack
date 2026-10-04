@@ -15,6 +15,11 @@ from app.database import get_db
 from app.models.user import AuthProvider, User
 from app.services.human_session_service import issue_session_token
 from app.services.audit_service import log_event
+from app.services.auth_attempt_tracking import (
+    MAX_TRACKED_KEYS as _MAX_TRACKED_KEYS,
+    enforce_key_cap,
+    recent_attempts,
+)
 from app.services.crypto_service import decrypt_secret
 from app.services.oidc_service import (
     authlib_available,
@@ -35,21 +40,27 @@ _WINDOW_SECONDS = 300
 
 def _check_oidc_rate_limit(ip: str) -> bool:
     now = time()
-    _oidc_attempts[ip] = [t for t in _oidc_attempts[ip] if now - t < _WINDOW_SECONDS]
-    return len(_oidc_attempts[ip]) < _MAX_ATTEMPTS
+    enforce_key_cap(_oidc_attempts, now, _WINDOW_SECONDS, _MAX_TRACKED_KEYS)
+    return len(recent_attempts(_oidc_attempts, ip, now, _WINDOW_SECONDS)) < _MAX_ATTEMPTS
 
 
 def _record_oidc_attempt(ip: str) -> float:
     attempt = time()
     _oidc_attempts[ip].append(attempt)
+    enforce_key_cap(_oidc_attempts, attempt, _WINDOW_SECONDS, _MAX_TRACKED_KEYS)
     return attempt
 
 
 def _release_oidc_attempt(ip: str, attempt: float) -> None:
+    attempts = _oidc_attempts.get(ip)
+    if attempts is None:
+        return
     try:
-        _oidc_attempts[ip].remove(attempt)
+        attempts.remove(attempt)
     except ValueError:
-        pass
+        return
+    if not attempts:
+        _oidc_attempts.pop(ip, None)
 
 
 logger = logging.getLogger(__name__)

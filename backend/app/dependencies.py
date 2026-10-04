@@ -34,6 +34,21 @@ from app.services.human_session_service import get_active_session
 SESSION_REQUEST_HEADER = "X-LicenseTrack-Request"
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
+
+def require_session_request_header(request: Request) -> None:
+    """Require the application header on unsafe cookie-authenticated requests."""
+    # Custom headers require a CORS preflight; cookies alone do not establish
+    # that a write originated from an allowed application client.
+    if (
+        request.method.upper() in _UNSAFE_METHODS
+        and request.headers.get(SESSION_REQUEST_HEADER) != "1"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing application request header",
+        )
+
+
 # auto_error=False so the dependency can also read the session cookie.
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -187,16 +202,8 @@ async def get_current_user(
         return user
 
     set_api_token_audit_context(None)
-    if credentials is None and request.method.upper() in _UNSAFE_METHODS:
-        # Browser sessions authenticate with a cookie the browser attaches
-        # automatically. Requiring a header only this app's own code sends
-        # means a write must come from the app itself (a custom header needs
-        # a CORS preflight). Bearer and API-token requests are unaffected.
-        if request.headers.get(SESSION_REQUEST_HEADER) != "1":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Missing application request header",
-            )
+    if credentials is None:
+        require_session_request_header(request)
     try:
         payload = auth.decode_access_token(token) if credentials is not None else auth.decode_session_cookie(token)
         user_id = int(payload["sub"])

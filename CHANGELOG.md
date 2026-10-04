@@ -285,13 +285,17 @@ lists and integration changes.
 
 ### Security
 
-- Hardened request validation for signed-in browser sessions, outbound URL
-  checks for webhooks and SSO discovery, and API tokens of accounts that must
+- Hardened request validation for signed-in browser sessions, including
+  sign-out, outbound URL checks for webhooks and SSO discovery, and API tokens
+  of accounts that must
   change their password. Scripts that write through a browser session cookie
   (rather than an API token) must now send the `X-LicenseTrack-Request: 1`
-  header; API-token and bearer requests are unaffected.
-- SSO sign-in rate limiting now counts only failed sign-ins. The deployment
-  guide documents `FORWARDED_ALLOW_IPS` for reverse-proxy setups, and Docker
+  header, including when signing out; API-token and bearer requests are
+  unaffected.
+- SSO sign-in rate limiting now counts only failed sign-ins and bounds
+  in-memory attempt tracking. Successful sign-ins release their tracking
+  entries. The deployment guide documents `FORWARDED_ALLOW_IPS` for
+  reverse-proxy setups, and Docker
   Compose passes it through.
 
 ## [1.1.24] - 2026-09-24

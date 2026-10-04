@@ -11,10 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import auth
 from app.config import settings
 from app.database import AsyncSessionLocal, get_db
-from app.dependencies import CurrentUser
+from app.dependencies import CurrentUser, require_session_request_header
 from app.models.user import AuthProvider, User
 from app.schemas.user import ChangePasswordRequest
 from app.services.audit_service import log_event
+from app.services.auth_attempt_tracking import (
+    MAX_TRACKED_KEYS as _MAX_TRACKED_KEYS,
+    enforce_key_cap,
+    recent_attempts,
+)
 from app.services.oidc_service import get_oidc_availability
 from app.services.settings_service import get_global_settings
 from app.services.user_service import bump_security_version
@@ -37,47 +42,22 @@ _login_attempts_by_ip: dict[str, list[float]] = defaultdict(list)
 _MAX_ATTEMPTS_PER_USER = 5
 _MAX_ATTEMPTS_PER_IP = 30
 _WINDOW_SECONDS = 300
-# Hard cap on tracked keys so a flood of unique usernames or IPs cannot grow the
-# in-memory counters without bound (memory-exhaustion DoS protection).
-_MAX_TRACKED_KEYS = 10_000
-
-
-def _recent(store: dict[str, list[float]], key: str, now: float) -> list[float]:
-    """Return the in-window timestamps for *key*, dropping the key when it empties."""
-    recent = [t for t in store[key] if now - t < _WINDOW_SECONDS]
-    if recent:
-        store[key] = recent
-    else:
-        store.pop(key, None)
-    return recent
-
-
-def _prune_expired(store: dict[str, list[float]], now: float) -> None:
-    """Drop every key whose attempts have all aged out of the window."""
-    for key in list(store):
-        _recent(store, key, now)
-
-
-def _enforce_key_cap(store: dict[str, list[float]], now: float) -> None:
-    """Drop expired keys, then evict the oldest active keys until the cap holds."""
-    if len(store) <= _MAX_TRACKED_KEYS:
-        return
-    _prune_expired(store, now)
-    while len(store) > _MAX_TRACKED_KEYS:
-        store.pop(next(iter(store)), None)
 
 
 def _check_rate_limit(username: str, ip: str | None) -> bool:
     """Return False when either the username or the source IP is over its threshold."""
     now = time()
     # Bound memory before doing any per-key work.
-    _enforce_key_cap(_login_attempts_by_user, now)
-    _enforce_key_cap(_login_attempts_by_ip, now)
+    enforce_key_cap(_login_attempts_by_user, now, _WINDOW_SECONDS, _MAX_TRACKED_KEYS)
+    enforce_key_cap(_login_attempts_by_ip, now, _WINDOW_SECONDS, _MAX_TRACKED_KEYS)
 
-    if len(_recent(_login_attempts_by_user, username, now)) >= _MAX_ATTEMPTS_PER_USER:
+    user_attempts = recent_attempts(_login_attempts_by_user, username, now, _WINDOW_SECONDS)
+    if len(user_attempts) >= _MAX_ATTEMPTS_PER_USER:
         return False
-    if ip is not None and len(_recent(_login_attempts_by_ip, ip, now)) >= _MAX_ATTEMPTS_PER_IP:
-        return False
+    if ip is not None:
+        ip_attempts = recent_attempts(_login_attempts_by_ip, ip, now, _WINDOW_SECONDS)
+        if len(ip_attempts) >= _MAX_ATTEMPTS_PER_IP:
+            return False
     return True
 
 
@@ -86,8 +66,8 @@ def _record_attempt(username: str, ip: str | None) -> None:
     _login_attempts_by_user[username].append(now)
     if ip is not None:
         _login_attempts_by_ip[ip].append(now)
-    _enforce_key_cap(_login_attempts_by_user, now)
-    _enforce_key_cap(_login_attempts_by_ip, now)
+    enforce_key_cap(_login_attempts_by_user, now, _WINDOW_SECONDS, _MAX_TRACKED_KEYS)
+    enforce_key_cap(_login_attempts_by_ip, now, _WINDOW_SECONDS, _MAX_TRACKED_KEYS)
 
 
 def _clear_attempts(username: str) -> None:
@@ -334,11 +314,16 @@ async def logout(
 ) -> Response:
     ip = request.client.host if request.client else None
     authorization = request.headers.get("authorization", "")
-    token = (
-        authorization[7:]
+    bearer_token = (
+        authorization[7:].strip()
         if authorization.lower().startswith("bearer ")
-        else request.cookies.get(settings.SESSION_COOKIE_NAME)
+        else None
     )
+    cookie_token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    if cookie_token and not bearer_token:
+        require_session_request_header(request)
+    token = bearer_token or cookie_token
+    payload = {}
     user = None
     token_version = 0
     if token:
