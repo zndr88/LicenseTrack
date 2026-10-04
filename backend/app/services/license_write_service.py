@@ -52,6 +52,7 @@ from app.services.maintenance_service import (
     validate_parent_license,
 )
 from app.services.money import is_canonical_money
+from app.services.notice_reminder_rules import clear_notice_handled_if_date_changed
 from app.services.license_service import (
     INCLUDED_SUPPORT_PARENT_TYPES,
     TYPE_DESCRIPTION_REQUIRED_DETAIL,
@@ -350,16 +351,6 @@ async def _snapshot_included_support_before_type_change(
         await snapshot_included_support(db, license_obj)
 
 
-def _clear_notice_handled_if_date_changed(license_obj: License, update_data: dict) -> None:
-    """Treat a changed notice date as a new reminder obligation."""
-    if "notice_date" not in update_data:
-        return
-    if update_data.get("notice_date") == license_obj.notice_date:
-        return
-    license_obj.notice_handled_at = None
-    license_obj.notice_handled_by_user_id = None
-
-
 def _normalise_maintenance_parent_ids(parent_license_id: int | None, maintenance_parent_ids: list[int]) -> list[int]:
     parent_ids: list[int] = []
     for parent_id in (parent_license_id, *maintenance_parent_ids):
@@ -581,7 +572,8 @@ async def apply_license_update(
     if "license_type" in update_data:
         await _snapshot_included_support_before_type_change(db, license_obj, new_type)
     before = {column.name: getattr(license_obj, column.name) for column in license_obj.__table__.columns}
-    _clear_notice_handled_if_date_changed(license_obj, update_data)
+    if "notice_date" in update_data:
+        clear_notice_handled_if_date_changed(license_obj, update_data["notice_date"])
     for field, value in update_data.items():
         setattr(license_obj, field, value)
     if "po_number" in update_data:
@@ -726,9 +718,8 @@ async def apply_license_field_patch(
             parsed_value if field == "startDate" else license_obj.start_date,
             parsed_value if field == "endDate" else license_obj.end_date,
         )
-        if field == "noticeDate" and parsed_value != license_obj.notice_date:
-            license_obj.notice_handled_at = None
-            license_obj.notice_handled_by_user_id = None
+        if field == "noticeDate":
+            clear_notice_handled_if_date_changed(license_obj, parsed_value)
         if field == "endDate" and is_non_expiring_license_type(license_obj.license_type):
             parsed_value = None
         setattr(license_obj, snake_field, parsed_value)

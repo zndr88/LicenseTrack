@@ -1,6 +1,6 @@
 import { defaultMaintenanceCoverageForLicenseType } from "./maintenanceCoverage.js";
 import { formatSecondaryContacts } from "./secondaryContacts.js";
-import { resolveLineBudgetOwner } from "./renewalLineDefaults.js";
+import { resolveLineBudgetOwner, resolveLineCostCentre } from "./renewalLineDefaults.js";
 import { customFieldValueMap } from "./customFieldFormValues.js";
 
 /**
@@ -40,6 +40,7 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
         : null;
     const licenseType = si.licenseType || renewal?.licenseType || "subscription";
     const budgetOwner = resolveLineBudgetOwner(si, licenses);
+    const costCentre = resolveLineCostCentre(si, licenses);
     const maintenanceCoverage = si.maintenanceCoverage
       || renewal?.maintenanceCoverage
       || (si.isRenewal ? defaultMaintenanceCoverageForLicenseType(renewal?.licenseType || licenseType) : "unknown");
@@ -59,7 +60,8 @@ export function buildConvertItemDefaults(order, licenses, defaultCurrency = "EUR
       externalRef:         si.externalRef || "",
       contactEmail:        si.contactEmail || renewal?.contactEmail || "",
       supplier:            order.supplier || si.supplier || renewal?.supplier || "",
-      costCentre:          si.costCentre || renewal?.costCentre || "",
+      costCentre:          costCentre.value,
+      costCentreRequired:  costCentre.required,
       licenseType,
       licenseMetric:       si.licenseMetric || renewal?.licenseMetric || "per_user",
       portalUrl:           si.portalUrl || renewal?.portalUrl || "",
