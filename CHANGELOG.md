@@ -98,7 +98,9 @@ Work in progress for 1.2.0.
   alongside license expiry alerts. These rows are marked "Maintenance" and show
   the maintenance dates.
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
-  test retries.
+  test retries. Form workflow tests use atomic input changes and wait for
+  asynchronous submission; report workflow tests load their sections before
+  testing interactions.
 - API requests with fields an endpoint doesn't define are logged as a warning,
   naming the endpoint and the fields. Set `STRICT_REQUEST_FIELDS=true` to reject
   them with a 422 instead; this may become the default in a later release, so
