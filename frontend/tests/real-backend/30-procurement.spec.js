@@ -1,7 +1,41 @@
 import { expect, test } from "@playwright/test";
-import { apiGet, openDetailSection, openLicense } from "./helpers.js";
+import { apiGet, apiPost, openDetailSection, openLicense } from "./helpers.js";
 
 const PO_NUMBER = "E2E-PO-1";
+
+test("merged renewal conversion requires a cost-centre choice", async ({ page }) => {
+  const predecessors = [];
+  const items = [];
+  for (const costCentre of ["E2E-CC-A", "E2E-CC-B"]) {
+    const license = await apiPost(page, "/api/licenses", {
+      publisherName: "E2E Allocation Vendor", softwareDescription: "E2E Cost Allocation",
+      licenseType: "subscription", licenseMetric: "per_user", quantity: "1", unitPrice: "100",
+      currency: "EUR", startDate: "2025-01-01", endDate: "2025-12-31",
+      budgetOwnerEmail: "owner@example.com", supplier: "E2E Reseller", costCentre,
+    });
+    predecessors.push(license.id);
+    const initiated = await apiPost(page, `/api/licenses/${license.id}/initiate-renewal`, {});
+    items.push(initiated.sourcingItem.id);
+  }
+  const merged = await apiPost(page, "/api/sourcing/merge", { sourcingItemIds: items });
+  await apiPost(page, `/api/sourcing/${merged.id}/convert`, { poNumber: "E2E-COST-CHOICE" });
+  await page.goto("/pending-orders");
+  await page.getByRole("row", { name: /E2E-COST-CHOICE/ }).getByRole("button", { name: "Convert", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Expand all" }).click();
+  const costCentre = dialog.locator("#cpo-cost-centre").or(dialog.locator("#ca-cost-centre-0"));
+  const confirm = dialog.getByRole("button", { name: /Confirm & (Renew|Create) License/ });
+  await expect(costCentre).toHaveValue("");
+  await expect(dialog.getByText(/Choose a cost centre/)).toBeVisible();
+  await expect(confirm).toBeDisabled();
+  await costCentre.fill("E2E-CC-B");
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  await expect(dialog).toBeHidden();
+  const licenses = await apiGet(page, "/api/licenses");
+  const successor = licenses.find((license) => license.softwareDescription === "E2E Cost Allocation" && !predecessors.includes(license.id));
+  expect(successor.costCentre).toBe("E2E-CC-B");
+});
 
 test("sourcing request with two lines converts to a pending order and then to licenses", async ({ page }) => {
   // 1. Create a sourcing request with two lines through the form.
