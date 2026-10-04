@@ -91,7 +91,8 @@ Work in progress for 1.2.0.
 - Pull requests now include a single-owner audit: every rule a change touches
   names its one owner in code, and literal duplicates are caught by guard tests.
 - Added a maintainer invariants document listing the rules LicenseTrack
-  guarantees on every entry point, and a pull request template.
+  guarantees on every entry point, and a pull request template. The architecture
+  map identifies the shared calculation, linking, grouping and upload owners.
 - Internal: CSV import and export read their field list from one registry (no
   behaviour change). License updates, field patches and import updates share
   the notice-date reminder reset rule. Request schemas share the canonical money
