@@ -12,6 +12,7 @@ const optionalEmail = z.string().refine(
   { message: "Must be a valid email address." }
 );
 
+export const COST_CENTRE_REQUIRED_MESSAGE = "Choose a cost centre. The merged licenses had different cost centres.";
 export const BUDGET_OWNER_REQUIRED_MESSAGE = "Choose a budget owner. The merged licenses had different budget owners.";
 
 /** PendingOrderModal + ConvertSourcingModal (new-PO mode). */
@@ -59,6 +60,7 @@ export const licenseFormSchema = z.object({
   currency:            z.string(),
   budgetOwnerEmail:    optionalEmail,
   budgetOwnerRequired: z.boolean().optional(),
+  costCentreRequired: z.boolean().optional(),
   isRenewable:         z.boolean().nullable().optional(),
   typeDescription:     z.string().optional(),
   secondaryContacts:   z.string(),
@@ -67,6 +69,9 @@ export const licenseFormSchema = z.object({
 }).superRefine((data, ctx) => {
   if (typeDescriptionMissing(data.licenseType, data.typeDescription)) {
     ctx.addIssue({ code: "custom", path: ["typeDescription"], message: TYPE_DESCRIPTION_REQUIRED_MESSAGE });
+  }
+  if (data.costCentreRequired && !data.costCentre.trim()) {
+    ctx.addIssue({ code: "custom", path: ["costCentre"], message: COST_CENTRE_REQUIRED_MESSAGE });
   }
   if (data.budgetOwnerRequired && !data.budgetOwnerEmail.trim()) {
     ctx.addIssue({
