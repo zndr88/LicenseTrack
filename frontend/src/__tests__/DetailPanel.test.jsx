@@ -1987,7 +1987,7 @@ describe('DetailPanel full edit form', () => {
         user={{ id: 2, role: 'admin' }}
         onUpdate={onUpdate}
         license={perpetualLicense}
-        allLicenses={[perpetualLicense, maintenanceRecord]}
+        allLicenses={[perpetualLicense, { ...maintenanceRecord, isRetired: true }]}
       />
     )
 
@@ -1995,6 +1995,8 @@ describe('DetailPanel full edit form', () => {
     expect(screen.queryByText(/Link an existing maintenance record/)).not.toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText('Maintenance Coverage'), 'separately_tracked')
     expect(screen.getByText('Link an existing maintenance record (optional)')).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /LT-60/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Show', exact: true }))
     await user.click(screen.getByRole('option', { name: /LT-60/ }))
     await user.click(screen.getByRole('button', { name: /save changes/i }))
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveLineBudgetOwner } from "../../utils/renewalLineDefaults.js";
+import { resolveLineBudgetOwner, resolveLineCostCentre } from "../../utils/renewalLineDefaults.js";
 import { buildConvertItemDefaults } from "../../utils/buildConvertItemDefaults.js";
 import { sourcingItemToFormDefaults } from "../../utils/sourcingItemFormModel.js";
 import { isItemReady } from "../../components/procurement/ConvertItemForm.jsx";
@@ -29,6 +29,26 @@ describe("resolveLineBudgetOwner", () => {
   it("does not require a choice when merged owners match", () => {
     expect(resolveLineBudgetOwner({ renewalForLicenseId: 1, cotermPredecessorIds: [1, 3] }, LICENSES))
       .toEqual({ value: "", required: false });
+  });
+});
+
+describe("merged cost centres", () => {
+  it("preserves explicit choices and only falls back for single predecessors", () => {
+    const licenses = [{ id: 1, costCentre: "CC-A" }, { id: 2, costCentre: "cc-a" }];
+    expect(resolveLineCostCentre({ renewalForLicenseId: 1 }, licenses)).toEqual({ value: "CC-A", required: false });
+    expect(resolveLineCostCentre({ costCentre: "CC-B", cotermPredecessorIds: [1, 2] }, licenses)).toEqual({ value: "CC-B", required: false });
+    expect(resolveLineCostCentre({ cotermPredecessorIds: [1, 2] }, licenses)).toEqual({ value: "", required: false });
+    expect(resolveLineCostCentre({}, licenses)).toEqual({ value: "", required: false });
+  });
+
+  it("leaves different cost centres blank and requires a conversion choice", () => {
+    const licenses = [{ id: 1, costCentre: "CC-A" }, { id: 2, costCentre: "CC-B" }];
+    const item = { id: 12, publisherName: "Acme", softwareDescription: "Suite", startDate: "2026-01-01", endDate: "2026-12-31", quantity: "1", estimatedUnitPrice: "1", renewalForLicenseId: 1, cotermPredecessorIds: [1, 2], isRenewal: true };
+    const defaults = buildConvertItemDefaults({ items: [item] }, licenses)[0];
+    expect(defaults.costCentre).toBe("");
+    expect(defaults.costCentreRequired).toBe(true);
+    expect(isItemReady(defaults)).toBe(false);
+    expect(isItemReady({ ...defaults, costCentre: "CC-B" })).toBe(true);
   });
 });
 
