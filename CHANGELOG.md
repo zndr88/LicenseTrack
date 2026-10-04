@@ -94,12 +94,12 @@ Work in progress for 1.2.0.
   guarantees on every entry point, and a pull request template.
 - Internal: CSV import and export read their field list from one registry (no
   behaviour change). License updates, field patches and import updates share
-  the notice-date reminder reset rule.
-  behaviour change). Request schemas share the canonical money validation helper
-  while preserving their field lists, validation timing and error messages.
-  behaviour change). CSV import also uses the shared included-maintenance type set.
-  behaviour change). Renewal actions refresh license statistics once through
-  the shared invalidation group.
+  the notice-date reminder reset rule. Request schemas share the canonical money
+  validation helper while preserving their field lists, validation timing and
+  error messages. CSV import also uses the shared included-maintenance type set.
+  Renewal actions refresh license statistics once through the shared
+  invalidation group. Conversion defaults reuse the shared custom-field value
+  map.
 - Budget owners now receive Maintenance Ending and Maintenance Expired alerts
   for the included maintenance on their perpetual, OEM and freeware licenses,
   alongside license expiry alerts. These rows are marked "Maintenance" and show
