@@ -98,7 +98,9 @@ Work in progress for 1.2.0.
   alongside license expiry alerts. These rows are marked "Maintenance" and show
   the maintenance dates.
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
-  test retries.
+  test retries. Form workflow tests use atomic input changes and wait for
+  asynchronous submission; report workflow tests load their sections before
+  testing interactions.
 - API requests with fields an endpoint doesn't define are logged as a warning,
   naming the endpoint and the fields. Set `STRICT_REQUEST_FIELDS=true` to reject
   them with a 422 instead; this may become the default in a later release, so
@@ -121,6 +123,9 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- CSV import warns when a nonblank external reference matches an existing
+  active license or an earlier row in the file, including records without PO,
+  contract or dates. Confirm the warning to deliberately reuse a reference.
 - Converting merged co-term renewal lines requires an explicit cost-centre
   choice when their predecessor licenses had different cost centres, matching
   the budget-owner rule. The API enforces the same choice.
@@ -172,7 +177,8 @@ Work in progress for 1.2.0.
     records to link.
   - All maintenance link dialogs search the same fields (including PO number,
     contract, dates and the covered license), and show how many retired
-    records are hidden.
+    records are hidden with an option to show and select them in Link existing,
+    Edit coverage and the full edit form.
 - CSV export → import now preserves manual PO totals,
   maintenance pricing (per-unit and free), and which licenses a maintenance
   record covers (several allowed, separated by ";"). An exported lifecycle
