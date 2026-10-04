@@ -101,6 +101,8 @@ Work in progress for 1.2.0.
   invalidation group. Conversion defaults reuse the shared custom-field value
   map. Removed an unused session-cookie helper and the unused APScheduler
   runtime dependency.
+- The demo mirrors canonical-number validation and notice handling, including
+  clearing handling state when the notice date changes.
 - Budget owners now receive Maintenance Ending and Maintenance Expired alerts
   for the included maintenance on their perpetual, OEM and freeware licenses,
   alongside license expiry alerts. These rows are marked "Maintenance" and show
