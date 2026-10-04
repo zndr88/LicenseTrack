@@ -174,7 +174,8 @@ Work in progress for 1.2.0.
     records to link.
   - All maintenance link dialogs search the same fields (including PO number,
     contract, dates and the covered license), and show how many retired
-    records are hidden.
+    records are hidden with an option to show and select them in Link existing,
+    Edit coverage and the full edit form.
 - CSV export → import now preserves manual PO totals,
   maintenance pricing (per-unit and free), and which licenses a maintenance
   record covers (several allowed, separated by ";"). An exported lifecycle
