@@ -178,16 +178,6 @@ def set_session_cookie(response: Response, token: str) -> None:
     )
 
 
-def clear_session_cookie(response: Response) -> None:
-    response.delete_cookie(
-        key=settings.SESSION_COOKIE_NAME,
-        httponly=True,
-        secure=settings.SESSION_COOKIE_SECURE,
-        samesite="lax",
-        path="/",
-    )
-
-
 def build_oidc_flow_cookie(state: str, nonce: str) -> str:
     expires_at = int(datetime.now(timezone.utc).timestamp()) + 600
     payload: dict[str, Any] = {
