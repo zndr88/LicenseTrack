@@ -99,7 +99,8 @@ Work in progress for 1.2.0.
   error messages. CSV import also uses the shared included-maintenance type set.
   Renewal actions refresh license statistics once through the shared
   invalidation group. Conversion defaults reuse the shared custom-field value
-  map. Removed an unused session-cookie helper.
+  map. Removed an unused session-cookie helper and the unused APScheduler
+  runtime dependency.
 - Budget owners now receive Maintenance Ending and Maintenance Expired alerts
   for the included maintenance on their perpetual, OEM and freeware licenses,
   alongside license expiry alerts. These rows are marked "Maintenance" and show
