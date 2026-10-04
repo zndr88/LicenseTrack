@@ -20,8 +20,9 @@ Work in progress for 1.2.0.
 ### Added
 
 - Documents can be `.lic` license files and `.msg` Outlook messages. Existing
-  installations that set `ALLOWED_UPLOAD_EXTENSIONS` themselves (for example
-  the native installer's environment file) need to add `.lic,.msg` to it.
+  native installations using the previous default extension list gain them
+  automatically on upgrade. Installations with a customized
+  `ALLOWED_UPLOAD_EXTENSIONS` value need to add `.lic,.msg` to it.
 - My Settings → Appearance has a per-user option to show or hide the Portfolio
   overview in the sidebar (shown by default).
 - Help and the user guide explain how to track SSL/TLS certificates, domain
@@ -92,7 +93,14 @@ Work in progress for 1.2.0.
 - Added a maintainer invariants document listing the rules LicenseTrack
   guarantees on every entry point, and a pull request template.
 - Internal: CSV import and export read their field list from one registry (no
-  behaviour change).
+  behaviour change). License updates, field patches and import updates share
+  the notice-date reminder reset rule. Request schemas share the canonical money
+  validation helper while preserving their field lists, validation timing and
+  error messages. CSV import also uses the shared included-maintenance type set.
+  Renewal actions refresh license statistics once through the shared
+  invalidation group. Conversion defaults reuse the shared custom-field value
+  map. Removed an unused session-cookie helper and the unused APScheduler
+  runtime dependency.
 - The demo mirrors canonical-number validation and notice handling, including
   clearing handling state when the notice date changes.
 - Budget owners now receive Maintenance Ending and Maintenance Expired alerts
@@ -100,7 +108,9 @@ Work in progress for 1.2.0.
   alongside license expiry alerts. These rows are marked "Maintenance" and show
   the maintenance dates.
 - Updated the frontend test tooling (Vitest 5, jsdom 30.1) and removed automatic
-  test retries.
+  test retries. Form workflow tests use atomic input changes and wait for
+  asynchronous submission; report workflow tests load their sections before
+  testing interactions.
 - API requests with fields an endpoint doesn't define are logged as a warning,
   naming the endpoint and the fields. Set `STRICT_REQUEST_FIELDS=true` to reject
   them with a 422 instead; this may become the default in a later release, so
@@ -123,6 +133,12 @@ Work in progress for 1.2.0.
 
 ### Fixed
 
+- CSV import warns when a nonblank external reference matches an existing
+  active license or an earlier row in the file, including records without PO,
+  contract or dates. Confirm the warning to deliberately reuse a reference.
+- Converting merged co-term renewal lines requires an explicit cost-centre
+  choice when their predecessor licenses had different cost centres, matching
+  the budget-owner rule. The API enforces the same choice.
 - The Registry's column titles stay on top while the table scrolls. Only the
   select-all box stayed; the titles scrolled away with the rows.
 - A price cleared on a renewal line stayed cleared only until conversion: Convert
@@ -171,7 +187,8 @@ Work in progress for 1.2.0.
     records to link.
   - All maintenance link dialogs search the same fields (including PO number,
     contract, dates and the covered license), and show how many retired
-    records are hidden.
+    records are hidden with an option to show and select them in Link existing,
+    Edit coverage and the full edit form.
 - CSV export → import now preserves manual PO totals,
   maintenance pricing (per-unit and free), and which licenses a maintenance
   record covers (several allowed, separated by ";"). An exported lifecycle

@@ -1,7 +1,7 @@
 import { buildCustomFieldValuePayload, customFieldValueMap } from "./customFieldFormValues.js";
 import { defaultMaintenanceCoverageForLicenseType, supportsMaintenanceCoverage } from "./maintenanceCoverage.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "./secondaryContacts.js";
-import { resolveLineBudgetOwner } from "./renewalLineDefaults.js";
+import { resolveLineBudgetOwner, resolveLineCostCentre } from "./renewalLineDefaults.js";
 import { typeOptInPayload } from "./licenseTypeRules.js";
 
 // Form numbers are canonical (NumberInput); never re-read them as typed text.
@@ -52,7 +52,7 @@ export function sourcingItemToFormDefaults(item, sourcingRequest, licenses = [])
     contractNumber: item?.contractNumber ?? "",
     invoiceNumber: item?.invoiceNumber ?? "",
     externalRef: item?.externalRef ?? "",
-    costCentre: item?.costCentre ?? "",
+    costCentre: resolveLineCostCentre(item, licenses).value,
     budgetOwnerEmail: resolveLineBudgetOwner(item, licenses).value,
     secondaryContacts: formatSecondaryContacts(item?.secondaryContacts),
     customFieldValues: customFieldValueMap(item?.customFieldValues),

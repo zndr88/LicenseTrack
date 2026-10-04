@@ -63,3 +63,23 @@ def test_match_duplicate_none_when_publisher_differs():
 def test_match_fields_sentence_multiple():
     assert _match_fields_sentence(["publisher_name", "software_description"]) == \
         "Publisher, and software match."
+
+
+def test_external_reference_matches_without_procurement_identity():
+    row = _row(contract="", po="", start=None, end=None)
+    candidate = _row(publisher="Other", software="Other", contract="", po="", start=None, end=None)
+    row.external_ref = "  EXT-123  "
+    candidate.external_ref = "ext-123"
+    assert _match_duplicate(row, candidate) == ("high", ["external_ref"])
+
+
+def test_blank_external_references_do_not_match():
+    row = _row(contract="", po="", start=None, end=None)
+    candidate = _row(contract="", po="", start=None, end=None)
+    row.external_ref = "  "
+    candidate.external_ref = None
+    assert _match_duplicate(row, candidate) is None
+
+
+def test_external_reference_warning_uses_public_label():
+    assert _match_fields_sentence(["external_ref"]) == "External reference matches."
