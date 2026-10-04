@@ -7,7 +7,7 @@ export default function CalculatedLineTotal({ id, quantity, unitPrice, currency,
   return (
     <div className="fg">
       <span className="fg-label" id={`${id}-label`}>Line Total</span>
-      <div className="mono" role="group" aria-labelledby={`${id}-label`}>
+      <div className="fi fi-static" role="group" aria-labelledby={`${id}-label`}>
         {formatCost(amount, currency, locale)}
       </div>
     </div>
