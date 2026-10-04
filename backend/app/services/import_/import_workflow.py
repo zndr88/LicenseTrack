@@ -381,6 +381,19 @@ def expand_skipped_inferred_rows(rows: list[ParsedRow], skipped_rows: set[int]) 
     return effective_skips
 
 
+def _currency_needs_confirmation(row: ParsedRow, skipped_rows: set[int] | None = None) -> bool:
+    """A defaulted currency matters only on a row that creates a license.
+
+    An update row without a currency keeps the record's existing currency, and
+    a skipped row is not imported.
+    """
+    return (
+        row.currency_defaulted
+        and row.import_action == "create"
+        and not (skipped_rows and row.row_number in skipped_rows)
+    )
+
+
 def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None = None) -> ImportWarningSummary:
     """Compute per-category warning counts across all parsed rows.
 
@@ -406,7 +419,7 @@ def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None =
 
         row_has_any_warning = False
 
-        if row.currency_defaulted:
+        if _currency_needs_confirmation(row, skipped_rows):
             defaulted_currency += 1
             row_has_any_warning = True
 
@@ -452,7 +465,7 @@ def build_warning_summary(rows: list[ParsedRow], skipped_rows: set[int] | None =
 
 def _row_to_schema(row: ParsedRow) -> CSVImportPreviewRow:
     warnings = list(row.warnings)
-    if row.currency_defaulted:
+    if _currency_needs_confirmation(row):
         warnings.append(
             f"Currency was blank or missing; defaulted to {row.currency}. Confirm this currency before importing."
         )

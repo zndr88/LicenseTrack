@@ -262,7 +262,7 @@ async def test_execute_update_reconciles_existing_by_ltref(test_app, auth_header
 
     resp = await test_app.post(
         "/api/import/execute", headers=auth_headers,
-        data={"mapping_json": _mapping(headers), "update_existing": "true", "acknowledge_warnings": "true"},
+        data={"mapping_json": _mapping(headers), "update_existing": "true"},
         files={"file": ("round.csv", csv_bytes, "text/csv")},
     )
 
@@ -312,7 +312,7 @@ async def test_native_confirm_update_reconciles_existing_by_ltref(test_app, auth
     confirm = await test_app.post(
         "/api/import/confirm",
         headers=auth_headers,
-        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        data={"update_existing": "true"},
         files={"file": ("native.csv", csv_bytes, "text/csv")},
     )
     assert confirm.status_code == 200, confirm.text
@@ -355,7 +355,7 @@ async def test_native_confirm_updates_existing_custom_field_and_blank_preserves_
     update_response = await test_app.post(
         "/api/import/confirm",
         headers=auth_headers,
-        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        data={"update_existing": "true"},
         files={"file": ("native-custom-update.csv", update_csv, "text/csv")},
     )
     assert update_response.status_code == 200, update_response.text
@@ -379,7 +379,7 @@ async def test_native_confirm_updates_existing_custom_field_and_blank_preserves_
     blank_response = await test_app.post(
         "/api/import/confirm",
         headers=auth_headers,
-        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        data={"update_existing": "true"},
         files={"file": ("native-custom-blank.csv", blank_csv, "text/csv")},
     )
     assert blank_response.status_code == 200, blank_response.text

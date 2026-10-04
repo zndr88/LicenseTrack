@@ -394,7 +394,7 @@ async def test_update_import_writes_procurement_dates_and_secondary_contacts(
     response = await test_app.post(
         "/api/import/confirm",
         headers=auth_headers,
-        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        data={"update_existing": "true"},
         files={"file": ("update.csv", _make_csv(list(row), [row]), "text/csv")},
     )
 
@@ -436,7 +436,7 @@ async def test_update_import_corrects_included_maintenance_fields(
     response = await test_app.post(
         "/api/import/confirm",
         headers=auth_headers,
-        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        data={"update_existing": "true"},
         files={"file": ("included-update.csv", _make_csv(list(row), [row]), "text/csv")},
     )
 
@@ -501,7 +501,7 @@ async def test_update_import_matches_lt_ref_ignoring_case_and_spaces(
     response = await test_app.post(
         "/api/import/confirm",
         headers=auth_headers,
-        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        data={"update_existing": "true"},
         files={"file": ("case-update.csv", _make_csv(list(row), [row]), "text/csv")},
     )
 
@@ -532,7 +532,7 @@ async def test_update_import_rejects_coverage_not_valid_for_the_license_type(
     response = await test_app.post(
         "/api/import/confirm",
         headers=auth_headers,
-        data={"update_existing": "true", "acknowledge_warnings": "true"},
+        data={"update_existing": "true"},
         files={"file": ("coverage-update.csv", _make_csv(list(row), [row]), "text/csv")},
     )
 

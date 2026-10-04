@@ -85,6 +85,47 @@ _FUTURE_START = (date.today() + timedelta(days=30)).isoformat()
 _FUTURE_END = (date.today() + timedelta(days=395)).isoformat()
 
 
+async def test_update_row_without_currency_keeps_existing_currency_without_warning(test_app, auth_headers):
+    existing = await _create_license(test_app, auth_headers, licenseType="freeware", currency="USD")
+    values = {
+        "license_ref": existing["licenseRef"], "publisher_name": existing["publisherName"],
+        "software_description": "Currency kept", "license_type": "freeware",
+    }
+    csv_bytes = _make_csv(list(values), [values])
+    preview = await test_app.post(
+        "/api/import/preview", headers=auth_headers, data={"update_existing": "true"},
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    assert body["rows"][0]["importAction"] == "update"
+    assert body["warningSummary"]["defaultedCurrencyCount"] == 0
+    assert not any("defaulted to" in warning for warning in body["rows"][0]["warnings"])
+    confirmed = await test_app.post(
+        "/api/import/confirm", headers=auth_headers, data={"update_existing": "true"},
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    updated = (await test_app.get(f"/api/licenses/{existing['id']}", headers=auth_headers)).json()
+    assert updated["softwareDescription"] == "Currency kept"
+    assert updated["currency"] == "USD"
+
+
+async def test_skipped_row_with_defaulted_currency_does_not_gate(test_app, auth_headers):
+    headers = ["publisher_name", "software_description", "license_type", "currency"]
+    csv_bytes = _make_csv(headers, [
+        {"publisher_name": "Acme", "software_description": "Kept", "license_type": "freeware", "currency": "EUR"},
+        {"publisher_name": "Acme", "software_description": "Skipped", "license_type": "freeware"},
+    ])
+    response = await test_app.post(
+        "/api/import/confirm", headers=auth_headers,
+        data={"skipped_rows_json": json.dumps([2])},
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["importedCount"] == 1
+
+
 async def _create_license(client, headers, **overrides) -> dict:
     resp = await client.post(
         "/api/licenses",
