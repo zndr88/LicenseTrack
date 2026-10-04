@@ -9,6 +9,7 @@ import io
 import json
 from datetime import date, timedelta
 
+import pytest
 from sqlalchemy import select
 
 from app.models.custom_fields import CustomFieldValue
@@ -3079,3 +3080,88 @@ async def test_csv_import_wires_renewal_chain_bidirectionally(
     assert imported.predecessor_id == predecessor.id
     assert predecessor.lifecycle_status == "renewed"
     assert predecessor.renewed_to_id == imported.id
+
+
+@pytest.mark.parametrize("mapped", [False, True])
+async def test_external_reference_duplicate_requires_acknowledgement(test_app, auth_headers, mapped):
+    existing = await _create_license(
+        test_app,
+        auth_headers,
+        licenseType="freeware",
+        externalRef="EXT-FREE-1",
+    )
+    values = {
+        "publisher_name": "Another publisher",
+        "software_description": "Free tool",
+        "license_type": "freeware",
+        "external_ref": "  ext-free-1  ",
+        "currency": "EUR",
+    }
+    csv_bytes = _make_csv(list(values), [values])
+    data = {}
+    if mapped:
+        data["mapping_json"] = json.dumps({"mapping": [{"rawHeader": key, "target": key} for key in values]})
+    preview = await test_app.post(
+        "/api/import/preview-mapped" if mapped else "/api/import/preview",
+        headers=auth_headers,
+        data=data,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert preview.status_code == 200, preview.text
+    warning = preview.json()["rows"][0]["duplicateWarnings"][0]
+    assert warning["matchedLicenseId"] == existing["id"]
+    assert warning["matchFields"] == ["external_ref"]
+    assert preview.json()["warningSummary"]["hasWarnings"] is True
+    endpoint = "/api/import/execute" if mapped else "/api/import/confirm"
+    rejected = await test_app.post(
+        endpoint,
+        headers=auth_headers,
+        data=data,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["detail"]["warningSummary"]["duplicateWarningCount"] == 1
+    accepted = await test_app.post(
+        endpoint,
+        headers=auth_headers,
+        data={**data, "acknowledge_warnings": "true"},
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["importedCount"] == 1
+
+
+async def test_external_reference_duplicate_within_file(test_app, auth_headers):
+    values = {
+        "publisher_name": "Acme", "software_description": "Free tool",
+        "license_type": "freeware", "external_ref": "EXT-BATCH", "currency": "EUR",
+    }
+    csv_bytes = _make_csv(list(values), [values, {**values, "publisher_name": "Other"}])
+    response = await test_app.post(
+        "/api/import/preview", headers=auth_headers,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    rows = response.json()["rows"]
+    assert rows[0]["duplicateWarnings"] == []
+    assert rows[1]["duplicateWarnings"][0]["matchedRowNumber"] == 1
+    assert rows[1]["duplicateWarnings"][0]["matchFields"] == ["external_ref"]
+
+
+async def test_external_reference_does_not_warn_for_update_target(test_app, auth_headers):
+    existing = await _create_license(
+        test_app, auth_headers, licenseType="freeware", externalRef="EXT-UPDATE",
+    )
+    values = {
+        "publisher_name": "Acme Corp", "software_description": "Acme Suite",
+        "license_type": "freeware", "external_ref": "EXT-UPDATE",
+        "license_ref": existing["licenseRef"], "currency": "EUR",
+    }
+    response = await test_app.post(
+        "/api/import/preview", headers=auth_headers, data={"update_existing": "true"},
+        files={"file": ("licenses.csv", _make_csv(list(values), [values]), "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    row = response.json()["rows"][0]
+    assert row["importAction"] == "update"
+    assert row["duplicateWarnings"] == []

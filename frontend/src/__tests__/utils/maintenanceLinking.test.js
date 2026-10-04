@@ -4,6 +4,7 @@ import {
   isHiddenFromLinking,
   isLinkedToParent,
   maintenanceCandidate,
+  maintenanceLinkCandidates,
   parentCandidate,
 } from "../../utils/maintenanceLinking.js";
 
@@ -17,6 +18,20 @@ const record = {
 const all = [parentA, parentB, record];
 
 describe("maintenanceLinking", () => {
+  it("partitions eligible records and excludes active links, not historical parent IDs", () => {
+    const records = [
+      parentA,
+      { ...record, parentLicenseId: 1 },
+      { ...record, id: 10, retired: true },
+      { ...record, id: 11, retirementScheduled: true },
+      { ...record, id: 12, maintenanceParentIds: ["1"], isRetired: true },
+    ];
+    const groups = maintenanceLinkCandidates(records, 1);
+    expect(groups.all.map((item) => item.id)).toEqual([9, 10, 11]);
+    expect(groups.visible.map((item) => item.id)).toEqual([9]);
+    expect(groups.hidden.map((item) => item.id)).toEqual([10, 11]);
+  });
+
   it("searches id, ref, publisher, description, PO, contract, dates and covered licenses", () => {
     const candidate = maintenanceCandidate(record, all);
     for (const needle of ["9", "lt-9", "acme", "support", "po-9", "c-9", "2026-12-31", "beta", "tool"]) {
@@ -53,6 +68,15 @@ describe("maintenance parent types have one owner", () => {
   // Other rules that happen to use the same three types are named here on purpose.
   const OTHER_RULES = ["/constants/licenseData.js", "/utils/reportHelpers.js", "/utils/maintenanceCoverage.js"];
   const sources = import.meta.glob("../../**/*.{js,jsx}", { query: "?raw", import: "default", eager: true });
+
+  it("keeps maintenance-link eligibility in the shared helper", () => {
+    const offenders = Object.entries(sources)
+      .filter(([path]) => !/__tests__|\.test\.|\/demo\//.test(path))
+      .filter(([path]) => !path.endsWith("/utils/maintenanceLinking.js"))
+      .filter(([, text]) => /licenseType\s*[!=]==?\s*["']maintenance["'][^\n]*isLinkedToParent/.test(text))
+      .map(([path]) => path);
+    expect(offenders).toEqual([]);
+  });
 
   it("does not spell out the perpetual/oem/freeware list outside its owner", () => {
     const copy = /"perpetual"[^\n]*"oem"[^\n]*"freeware"|"freeware"[^\n]*"perpetual"[^\n]*"oem"|=== "perpetual" \|\| [^\n]*=== "oem"/;

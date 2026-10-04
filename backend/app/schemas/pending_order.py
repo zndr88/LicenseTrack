@@ -7,7 +7,7 @@ from pydantic.alias_generators import to_camel
 from app.models.license import LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
 from app.models.pending_order import EvidenceTransferStatus, PendingOrderStatus
 from app.services.email_validation import reject_email_crlf
-from app.services.money import is_canonical_money
+from app.services.money import is_canonical_money, validate_canonical_money
 from app.services.procurement_totals import calculate_per_unit_support_total
 from app.services.support_coverage_defaults import apply_bundled_included_support_defaults
 from app.schemas.document import ProcurementDocumentResponse
@@ -268,10 +268,7 @@ class PendingOrderConvertRequest(RequestModel):
     )
     @classmethod
     def _validate_canonical_money(cls, v: str) -> str:
-        if v == "":
-            return v
-        if not is_canonical_money(v):
-            raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {v!r}.")
+        validate_canonical_money(v)
         return v
 
     @model_validator(mode="after")

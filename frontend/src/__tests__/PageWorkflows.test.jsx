@@ -598,8 +598,7 @@ describe("LicensesPage workflows", () => {
 
     await user.click(await screen.findByRole("button", { name: /^edit$/i }));
     const descriptionInput = screen.getByDisplayValue("Acme Suite");
-    await user.clear(descriptionInput);
-    await user.type(descriptionInput, "Panel Edited Suite");
+    fireEvent.change(descriptionInput, { target: { value: "Panel Edited Suite" } });
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
@@ -3195,6 +3194,12 @@ describe("PendingOrdersPage workflows", () => {
 });
 
 describe("ReportsPage workflows", () => {
+  beforeEach(async () => {
+    // Load the real lazy section module before the interaction test starts;
+    // module transformation under suite load is not a report UI interaction.
+    await import("../components/reports/ReportSections.jsx");
+  });
+
   test("renders empty reports, happy-path report data, and export errors", async () => {
     const user = userEvent.setup();
     const onError = vi.fn();

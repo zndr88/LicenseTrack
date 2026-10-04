@@ -17,7 +17,6 @@ Python backend (see `backend/requirements.txt`):
 - cryptography (Apache-2.0 OR BSD-3-Clause)
 - aiosqlite (MIT)
 - python-multipart (Apache-2.0)
-- APScheduler (MIT)
 - aiosmtplib (MIT)
 - email-validator (Unlicense)
 - httpx (BSD-3-Clause)

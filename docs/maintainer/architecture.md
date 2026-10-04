@@ -53,6 +53,25 @@ does not own or duplicate the presentation catalog.
 
 ## LicensesPage Sub-Module Pattern
 
+The shared domain owners below are reused across registry, detail, procurement
+and report surfaces. Keep calculations and eligibility in these modules; pages
+and dialogs consume their results.
+
+| Module | Owns |
+|--------|------|
+| `frontend/src/utils/lineAmount.js` | Canonical line amount as quantity × unit price, and unit-price derivation from an entered line total |
+| `frontend/src/utils/procurementIdentity.js` (`getProcurementBreakdown`) | Purchase-line sum, one manual PO total per financial group, and currency-specific reconciliation; never spread overrides across license lines |
+| `frontend/src/components/pages/licenses/registryGrouping.js` | Registry group construction and summaries for the supported group modes; currency-separated line and PO totals |
+| `frontend/src/utils/termRelationship.js` (`termLinkBlock`) | Pure term-link compatibility and date-order blocking used by existing-record and procurement term links |
+| `frontend/src/utils/maintenanceLinking.js` (`maintenanceLinkCandidates`) | Existing-maintenance eligibility, active-link exclusion, searchable option formatting, and visible/hidden candidate groups shared by create/link, coverage and full edit |
+| `frontend/src/components/licenses/MaintenanceQuickLinkField.jsx` | Optional existing-maintenance selection and revealing hidden records in coverage and full edit; presentation delegates to `components/ui/LinkPicker.jsx` |
+| `backend/app/services/upload_policy.py` | Configured upload extensions and the upload-types response contract; upload validation remains enforced by routes, middleware and storage |
+| `frontend/src/hooks/useUploadAccept.js` | Upload accept values derived from the server policy; document inputs consume this hook rather than copying extension lists |
+
+Maintenance candidate formatting remains in the shared linking utility. Add
+Maintenance composes the same candidate groups with its existing end-date sort;
+the quick-link field owns only selection and hidden-record disclosure state.
+
 `LicensesPage.jsx` is a composition layer. Its responsibilities are split across sub-modules in `frontend/src/components/pages/licenses/`:
 
 | Module | Owns |
