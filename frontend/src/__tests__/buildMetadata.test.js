@@ -36,8 +36,12 @@ describe("build identification", () => {
     expect(buildMetadata({ version: "1.1.24", ref: "main", commit: "abc123456", tag: "v1.1.24", dirty: true }).tooltip).toContain("includes uncommitted changes");
     expect(buildMetadata({ version: "1.1.24", tag: "v1.1.24", dirty: true }).label).toContain("Preview");
   });
-  it("keeps source archives without metadata marked as previews", () => {
-    expect(readBuildMetadata("1.1.24", "missing-source-directory", {})).toEqual({ label: "Preview · source (unknown)", tooltip: "Unreleased changes after v1.1.24" });
+  it("shows the version when a build has no Git metadata and no build arguments", () => {
+    // Docker builds (no .git in the build context) and release source archives.
+    expect(readBuildMetadata("1.1.24", "missing-source-directory", {})).toEqual({ label: "v1.1.24", tooltip: "" });
+  });
+  it("labels a build without Git as a preview when build arguments name a branch", () => {
+    expect(readBuildMetadata("1.1.24", "missing-source-directory", { LT_BUILD_REF: "refs/heads/main", LT_BUILD_SHA: "abc123456" })).toEqual({ label: "Preview · main (abc1234)", tooltip: "Unreleased changes after v1.1.24" });
   });
   it("accepts explicit build metadata without a Git checkout", () => {
     expect(readBuildMetadata("1.1.24", "missing-source-directory", { LT_BUILD_REF: "refs/tags/v1.1.24", LT_BUILD_SHA: "abc123456" })).toEqual({ label: "v1.1.24", tooltip: "" });

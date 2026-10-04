@@ -20,7 +20,8 @@ Work in progress for 1.2.0.
 ### Added
 
 - The sidebar identifies unreleased builds as previews with their branch and
-  commit. Matching release-tag builds show the released version.
+  commit. Release-tag builds, and builds without Git information such as Docker
+  images, show the version number.
 
 - Documents can be `.lic` license files and `.msg` Outlook messages. Existing
   native installations using the previous default extension list gain them
