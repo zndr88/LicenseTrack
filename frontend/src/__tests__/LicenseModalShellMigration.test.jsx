@@ -252,12 +252,13 @@ describe("license modal shell migration", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /add additional license line/i }));
-    await user.type(screen.getAllByLabelText(/software description/i)[1], "Perpetual Add-on");
+    fireEvent.change(screen.getAllByLabelText(/software description/i)[1], { target: { value: "Perpetual Add-on" } });
     await user.selectOptions(screen.getAllByLabelText(/^license type$/i)[1], "perpetual");
     await user.selectOptions(screen.getAllByLabelText(/^coverage$/i)[1], "separately_tracked");
     await user.click(screen.getByRole("button", { name: /^add maintenance line$/i }));
     await user.click(screen.getByRole("button", { name: /save 3 licenses/i }));
 
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     const [allForms] = onConfirm.mock.calls[0];
     expect(allForms[1]).toEqual(expect.objectContaining({
       softwareDescription: "Perpetual Add-on",

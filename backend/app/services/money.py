@@ -119,6 +119,15 @@ _WHITESPACE_RE = re.compile(r"[\s\u00a0\u202f\u2009]")
 _AMBIGUOUS_DOT_RE = re.compile(r"^-?[1-9]\d{0,2}\.\d{3}$")
 
 
+def validate_canonical_money(value: object) -> object:
+    """Reject non-canonical request strings; leave schema coercion to Pydantic."""
+    if value is None or value == "":
+        return value
+    if isinstance(value, str) and not is_canonical_money(value):
+        raise ValueError(f"Money values must be plain decimal strings (e.g. '1234.50'); got {value!r}.")
+    return value
+
+
 def parse_localized_money(raw: str | None, number_format_locale: str) -> str | None:
     """Convert typed or imported number text to a canonical decimal string.
 
