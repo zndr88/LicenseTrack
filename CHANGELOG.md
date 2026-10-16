@@ -15,6 +15,11 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Portfolio reset no longer fails with a database check-constraint error when
+  the portfolio contains maintenance records linked to a parent license.
+
 ## [1.2.0] - 2026-10-04
 
 This release adds Registry grouping and generated PO line numbers, unifies
