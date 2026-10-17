@@ -4546,14 +4546,14 @@ async def test_concurrent_single_and_batch_conversion_only_one_succeeds(
     from httpx import ASGITransport, AsyncClient
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-    from app.database import Base, enable_sqlite_foreign_keys, get_db
+    from app.database import Base, configure_sqlite_connections, get_db
     from app.main import app
     from app.models.user import User
     from app.services.human_session_service import issue_session_token
 
     database_path = tmp_path / "cross-endpoint-conversion.sqlite"
     engine = create_async_engine(f"sqlite+aiosqlite:///{database_path.as_posix()}")
-    enable_sqlite_foreign_keys(engine.sync_engine)
+    configure_sqlite_connections(engine.sync_engine)
     session_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
