@@ -13,6 +13,8 @@ Database Backup and Restore lets you create point-in-time snapshots of the Licen
 
 LicenseTrack uses SQLite's built-in online backup API to capture the database. Rather than copying the live file - which could be mid-write - it opens a connection to the database and streams a consistent snapshot into a temporary file. This means a database backup taken while users are actively working will still be internally consistent. The snapshot is compressed into a timestamped zip archive named `license_lifecycle_backup_YYYYMMDD_HHMMSS.zip` and written to the configured database backup directory.
 
+While the app runs, the database folder also holds `licenses.db-wal` and `licenses.db-shm`. Never copy `licenses.db` on its own as a backup; use the in-app backup, which includes recent changes still in those files.
+
 After every database backup, LicenseTrack prunes the database backup directory, keeping only the most recent N files. The number of files to keep is set in global settings. Files older than the retention count are deleted automatically.
 
 The archive list on the admin page shows validated routine database backups,

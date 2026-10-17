@@ -380,10 +380,14 @@ Common failures:
 | `409` | Workflow state conflict, relationship invariant, unavailable integration capability, or concurrent conversion |
 | `413` | Request or uploaded file exceeds the configured size limit |
 | `422` | Request schema validation failed |
+| `503` | Temporarily unavailable: the database stayed busy for 15 seconds, or a restore is in progress. The `Retry-After` header gives the seconds to wait |
 
 Do not retry `400`, `403`, `404`, `409`, or `422` responses blindly. Read the
 `detail` value, fetch current state when appropriate, and surface the failure to
 the integration operator.
+
+A `503` is safe to retry after the number of seconds in `Retry-After`. The
+request was not applied.
 
 List endpoints currently return complete visible collections unless their
 installed OpenAPI schema documents filters. Do not assume undocumented
