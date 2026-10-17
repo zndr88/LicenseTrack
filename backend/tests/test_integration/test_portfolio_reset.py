@@ -11,7 +11,7 @@ from app.models.document import (
     ProcurementDocument,
     ProcurementDocumentCategory,
 )
-from app.models.license import License, LicenseMetric, LicenseType
+from app.models.license import License, LicenseMaintenanceLink, LicenseMetric, LicenseType
 from app.models.license_ref_seq import LicenseRefSequence
 from app.models.pending_order import PendingOrder
 from app.models.settings import GlobalSettings
@@ -191,6 +191,89 @@ async def test_portfolio_reset_deletes_full_history_and_preserves_configuration(
     assert [row.action for row in audit_rows] == ["system.portfolio_reset"]
     assert not (storage_root / "documents").exists()
     assert archive_path.exists()
+
+
+async def test_portfolio_reset_deletes_linked_maintenance_records(
+    db_session,
+    test_app,
+    auth_headers,
+    tmp_path,
+    monkeypatch,
+):
+    admin = await db_session.scalar(select(User))
+    db_session.add(
+        GlobalSettings(
+            id=1,
+            storage_path=str(tmp_path / "storage"),
+            backup_location=str(tmp_path / "backups"),
+        )
+    )
+    # The parent is inserted first, so a table-wide delete reaches it before
+    # its maintenance child and SQLite nulls the child's parent link.
+    parent = License(
+        publisher_name="Acme",
+        software_description="Suite",
+        license_type=LicenseType.perpetual,
+        license_metric=LicenseMetric.per_user,
+        quantity="1",
+        created_by=admin.id,
+    )
+    db_session.add(parent)
+    await db_session.flush()
+    maintenance = License(
+        publisher_name="Acme",
+        software_description="Suite maintenance",
+        license_type=LicenseType.maintenance,
+        license_metric=LicenseMetric.per_user,
+        quantity="1",
+        parent_license_id=parent.id,
+        created_by=admin.id,
+    )
+    db_session.add(maintenance)
+    await db_session.flush()
+    renewed_maintenance = License(
+        publisher_name="Acme",
+        software_description="Suite maintenance renewal",
+        license_type=LicenseType.maintenance,
+        license_metric=LicenseMetric.per_user,
+        quantity="1",
+        parent_license_id=parent.id,
+        predecessor_id=maintenance.id,
+        created_by=admin.id,
+    )
+    db_session.add(renewed_maintenance)
+    await db_session.flush()
+    parent.has_maintenance = True
+    parent.active_maintenance_id = renewed_maintenance.id
+    db_session.add_all(
+        [
+            LicenseMaintenanceLink(maintenance_license_id=maintenance.id, parent_license_id=parent.id),
+            LicenseMaintenanceLink(
+                maintenance_license_id=renewed_maintenance.id,
+                parent_license_id=parent.id,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    archive_path = tmp_path / "backups" / "license_lifecycle_pre_portfolio_reset_test.zip"
+    archive_path.parent.mkdir(parents=True)
+    archive_path.write_bytes(b"recovery")
+    monkeypatch.setattr(
+        "app.services.portfolio_reset_service.create_portfolio_reset_archive",
+        lambda *_args: archive_path,
+    )
+
+    response = await test_app.post(
+        "/api/operations/portfolio-reset",
+        headers=auth_headers,
+        json={"confirmation": "RESET PORTFOLIO"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["counts"]["licenses"] == 3
+    assert await _count(db_session, License) == 0
+    assert await _count(db_session, LicenseMaintenanceLink) == 0
 
 
 async def test_portfolio_reset_requires_exact_confirmation(test_app, auth_headers):
