@@ -15,6 +15,11 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Portfolio reset no longer fails with a database check-constraint error when
+  the portfolio contains maintenance records linked to a parent license.
+
 ### Security
 
 - Updated the build-time `source-map-js` dependency to 1.2.2 for
