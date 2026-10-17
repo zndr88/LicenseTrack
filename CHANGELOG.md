@@ -20,6 +20,12 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Portfolio reset no longer fails with a database check-constraint error when
   the portfolio contains maintenance records linked to a parent license.
 
+### Security
+
+- Updated the build-time `source-map-js` dependency to 1.2.2 for
+  GHSA-68fv-2mgg-jv7q. It is used only while building the frontend and is not
+  part of the shipped application.
+
 ## [1.2.0] - 2026-10-04
 
 This release adds Registry grouping and generated PO line numbers, unifies
