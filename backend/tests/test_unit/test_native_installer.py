@@ -751,6 +751,7 @@ def test_upgrade_backup_restores_database_data_config_and_state(tmp_path: Path, 
     changed.close()
 
     monkeypatch.setattr(installer, "prepare_data_directories", lambda _paths: None)
+    monkeypatch.setattr(installer, "restore_default_security_labels", lambda _targets: None)
     monkeypatch.setattr(installer.shutil, "chown", lambda *args, **kwargs: None)
     restored_state = installer.restore_upgrade_backup(archive, paths)
 
@@ -763,6 +764,100 @@ def test_upgrade_backup_restores_database_data_config_and_state(tmp_path: Path, 
         assert restored.execute("SELECT value FROM records").fetchone() == ("before",)
     finally:
         restored.close()
+
+
+def _fake_selinux_tools(monkeypatch, enabled_returncode: int, commands: list):
+    tools = {"selinuxenabled": "/usr/sbin/selinuxenabled", "restorecon": "/usr/sbin/restorecon"}
+    monkeypatch.setattr(installer.shutil, "which", lambda name: tools.get(name))
+
+    class Completed:
+        returncode = enabled_returncode
+
+    monkeypatch.setattr(installer.subprocess, "run", lambda command, **kwargs: Completed())
+    monkeypatch.setattr(installer, "run", lambda command, **kwargs: commands.append(command))
+
+
+def test_restore_default_security_labels_runs_restorecon_when_selinux_is_enabled(tmp_path: Path, monkeypatch):
+    commands: list = []
+    _fake_selinux_tools(monkeypatch, 0, commands)
+    existing_dir = tmp_path / "data"
+    existing_dir.mkdir()
+    existing_file = tmp_path / "licensetrack.env"
+    existing_file.write_text("x", encoding="utf-8")
+
+    installer.restore_default_security_labels([existing_dir, tmp_path / "missing", existing_file])
+
+    assert commands == [["/usr/sbin/restorecon", "-RF", existing_dir, existing_file]]
+
+
+def test_restore_default_security_labels_skips_when_selinux_is_disabled(tmp_path: Path, monkeypatch):
+    commands: list = []
+    _fake_selinux_tools(monkeypatch, 1, commands)
+
+    installer.restore_default_security_labels([tmp_path])
+
+    assert commands == []
+
+
+def test_restore_default_security_labels_skips_without_selinux_tools(tmp_path: Path, monkeypatch):
+    commands: list = []
+    monkeypatch.setattr(installer.shutil, "which", lambda name: None)
+
+    def fail(*args, **kwargs):
+        raise AssertionError("nothing should be run without SELinux tools")
+
+    monkeypatch.setattr(installer.subprocess, "run", fail)
+    monkeypatch.setattr(installer, "run", lambda command, **kwargs: commands.append(command))
+
+    installer.restore_default_security_labels([tmp_path])
+
+    assert commands == []
+
+
+def test_upgrade_backup_restore_relabels_restored_paths_and_secures_database(tmp_path: Path, monkeypatch):
+    paths = install_paths(tmp_path)
+    data_root = Path(paths.data_root)
+    data_root.mkdir(parents=True)
+    Path(paths.config_root).mkdir(parents=True)
+    Path(paths.upgrade_backup_root).mkdir(parents=True)
+    db_path = data_root / "licenses.db"
+    connection = sqlite3.connect(db_path)
+    connection.execute("CREATE TABLE global_settings (id INTEGER PRIMARY KEY, storage_path TEXT, backup_location TEXT)")
+    connection.execute("INSERT INTO global_settings VALUES (1, '', '')")
+    connection.commit()
+    connection.close()
+    paths.config_file.write_text("DATABASE_URL=test\n", encoding="utf-8")
+    Path(paths.cli_file).parent.mkdir(parents=True)
+    Path(paths.cli_file).write_text("cli\n", encoding="utf-8")
+    state = {
+        "schema_version": installer.STATE_SCHEMA_VERSION,
+        "version": "1.0.8",
+        "release_path": str(tmp_path / "release-1.0.8"),
+        **{field: getattr(paths, field) for field in installer.InstallPaths.__dataclass_fields__},
+    }
+    installer.write_json(paths.state_file, state)
+    archive = installer.create_upgrade_backup(paths, state, db_path)
+
+    relabeled: list = []
+    chowned: list = []
+    monkeypatch.setattr(installer, "prepare_data_directories", lambda _paths: None)
+    monkeypatch.setattr(installer, "restore_default_security_labels", lambda targets: relabeled.extend(targets))
+    monkeypatch.setattr(
+        installer.shutil, "chown", lambda path, user=None, group=None: chowned.append((Path(path), user, group))
+    )
+
+    installer.restore_upgrade_backup(archive, paths)
+
+    assert set(relabeled) >= {
+        data_root.resolve(),
+        db_path.resolve(),
+        Path(paths.config_file),
+        Path(paths.state_file),
+        Path(paths.cli_file).resolve(),
+    }
+    assert (db_path.resolve(), paths.service_user, paths.service_group) in chowned
+    if os.name != "nt":
+        assert stat.S_IMODE(db_path.stat().st_mode) == 0o600
 
 
 def test_resolve_rollback_archive_uses_recorded_backup_and_confines_explicit_paths(tmp_path: Path):
