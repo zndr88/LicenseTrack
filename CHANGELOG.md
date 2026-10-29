@@ -15,6 +15,13 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-29
+
+This fix release for 1.2.0 updates dependencies for security advisories and
+fixes native rollback on SELinux systems and portfolio reset. It adds no
+database migrations; see the
+[upgrade guide](wiki/operations/upgrade.md#upgrading-to-121).
+
 ### Fixed
 
 - Portfolio reset no longer fails with a database check-constraint error when
@@ -2059,7 +2066,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/zndr88/LicenseTrack/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/zndr88/LicenseTrack/compare/v1.1.24...v1.2.0
 [1.1.24]: https://github.com/zndr88/LicenseTrack/compare/v1.1.23...v1.1.24
 [1.1.23]: https://github.com/zndr88/LicenseTrack/compare/v1.1.22...v1.1.23
