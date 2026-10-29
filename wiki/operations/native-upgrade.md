@@ -113,6 +113,22 @@ is possible.
     back instance. Preserve the automatically created pre-rollback safety
     archive until the rollback has been fully accepted.
 
+!!! note "SELinux enforcing on 1.2.0 and earlier"
+    On systems with SELinux enforcing, a rollback started from 1.2.0 or earlier
+    (including the automatic rollback after a failed upgrade) leaves the service
+    unable to start, because the restored files keep a temporary-folder label.
+    To repair it, reset the labels and permissions and start the service:
+
+    ```bash
+    sudo restorecon -RFv /etc/licensetrack /var/lib/licensetrack /usr/local/bin/licensetrack
+    sudo chmod 600 /var/lib/licensetrack/licenses.db
+    sudo systemctl reset-failed licensetrack
+    sudo systemctl start licensetrack
+    sudo licensetrack doctor
+    ```
+
+    From 1.2.1 the restore resets labels and permissions itself.
+
 ## Post-upgrade checks
 
 ```bash
