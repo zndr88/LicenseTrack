@@ -25,6 +25,18 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Updated the build-time `source-map-js` dependency to 1.2.2 for
   GHSA-68fv-2mgg-jv7q. It is used only while building the frontend and is not
   part of the shipped application.
+- Updated Authlib to 1.9.1 (with joserfc 1.7.7 and cryptography 50.0.2) for
+  CVE-2026-96760, CVE-2026-114615 and related Authlib advisories. LicenseTrack
+  uses Authlib only for the OIDC authorization-code token exchange and validates
+  ID tokens with joserfc directly, so the affected Authlib code paths are not
+  used, but the patched release is now shipped.
+- Updated DOMPurify to 3.4.17 for GHSA-cg2g-xh64-v4q7. It is an optional
+  dependency of the PDF export library; LicenseTrack does not use the affected
+  `SAFE_FOR_TEMPLATES` mode.
+- Updated build and test tooling (Vite 8.3.4, Vitest 5.0.5, undici 8.12.3 and
+  related patch releases) for Vite, launch-editor, `@vitest/mocker` and undici
+  advisories. These are used only during development and are not part of the
+  shipped application.
 
 ## [1.2.0] - 2026-10-04
 
