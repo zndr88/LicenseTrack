@@ -204,7 +204,7 @@ export default function SourcingPage({
     }
     openSourcingRequest(parentRequest.id);
     const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
     setHighlightedRowId(highlightId);
     const t = setTimeout(() => {
       setHighlightedRowId(null);
@@ -255,7 +255,7 @@ export default function SourcingPage({
     setExpandedHistoryRequestId(parentRequest.id);
     const scrollTimer = setTimeout(() => {
       const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
     }, 50);
     setHighlightedRowId(highlightId);
     const clearTimer = setTimeout(() => {

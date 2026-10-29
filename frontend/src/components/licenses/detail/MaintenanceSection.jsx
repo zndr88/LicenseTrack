@@ -58,8 +58,7 @@ export default function MaintenanceSection({
   const handleSaveIncludedSupport = async (support) => {
     const { data, error } = await updateIncludedSupport(license.id, support);
     if (error) {
-      setToast(`Could not save maintenance: ${error}`);
-      setTimeout(() => setToast(null), 6000);
+      setToast(`Could not save maintenance: ${error}`, 6000);
       return false;
     }
     onUpdate(license.id, data);
@@ -76,8 +75,7 @@ export default function MaintenanceSection({
   const handleDisableMaintenance = async () => {
     const { data, error } = await disableMaintenance(license.id);
     if (error) {
-      setToast(`Could not disable maintenance: ${error}`);
-      setTimeout(() => setToast(null), 6000);
+      setToast(`Could not disable maintenance: ${error}`, 6000);
       return;
     }
     onUpdate(license.id, data);
