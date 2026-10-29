@@ -180,9 +180,9 @@ export default function RenewalWorkflowSection({
                       setToast(
                         ids.length > 1
                           ? `Renewal initiated - one sourcing request with ${ids.length} lines created`
-                          : "Renewal initiated - sourcing record created"
+                          : "Renewal initiated - sourcing record created",
+                        6000
                       );
-                      setTimeout(() => setToast(null), 6000);
                     } finally {
                       setInitiatingRenewal(false);
                     }

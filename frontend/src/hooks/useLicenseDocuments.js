@@ -230,8 +230,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     setProcessingRequestPending(true);
     const pendingResults = await loadProcessingResults({ showLoading: false });
     if (pendingResults.length === 0) pollProcessingResults();
-    setToast(`${action.label} requested.`);
-    setTimeout(() => setToast(null), 5000);
+    setToast(`${action.label} requested.`, 5000);
   };
 
   const handleAcceptProcessingResult = async (result, suggestedFieldIndexes = null) => {
@@ -244,8 +243,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     }
     await refreshAfterProcessingReview();
     const fields = data?.appliedFields?.join(", ");
-    setToast(fields ? `Applied suggested fields: ${fields}.` : "Suggested fields applied.");
-    setTimeout(() => setToast(null), 5000);
+    setToast(fields ? `Applied suggested fields: ${fields}.` : "Suggested fields applied.", 5000);
   };
 
   const handleRejectProcessingResult = async (result) => {
@@ -264,8 +262,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
           return;
         }
         await loadProcessingResults();
-        setToast("Document processing suggestions rejected.");
-        setTimeout(() => setToast(null), 5000);
+        setToast("Document processing suggestions rejected.", 5000);
       },
     });
   };
