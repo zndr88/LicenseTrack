@@ -19,6 +19,8 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 - Portfolio reset no longer fails with a database check-constraint error when
   the portfolio contains maintenance records linked to a parent license.
+- A confirmation message that appears shortly after another one is no longer
+  dismissed early by the earlier message's timer.
 
 ### Security
 
