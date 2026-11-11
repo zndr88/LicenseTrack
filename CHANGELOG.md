@@ -15,6 +15,13 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Added
+
+- `python -m app.upgrade` upgrades the database as a separate step, taking the
+  same pre-upgrade snapshot as startup. Set `RUN_MIGRATIONS_ON_STARTUP=false`
+  to stop the app from upgrading at startup; it then refuses to start until the
+  database is current. Startup upgrades stay on by default.
+
 ## [1.2.1] - 2026-10-29
 
 This fix release for 1.2.0 updates dependencies for security advisories and

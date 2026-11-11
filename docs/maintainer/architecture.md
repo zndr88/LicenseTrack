@@ -455,11 +455,16 @@ mutation boundary; `frontend/src/api/referenceData.js`,
 `components/settings/sections/ReferenceDataSection.jsx` own the frontend data
 access, selection, and admin catalog surfaces respectively.
 
-Before startup migrations, `main.py` calls
+`services/schema_upgrade.py` owns schema upgrades. `upgrade_schema` is called
+by startup (`main.py`, when `RUN_MIGRATIONS_ON_STARTUP` is on, the default) and
+by the separate command `python -m app.upgrade`. With the setting off, startup
+only calls `schema_is_current` and refuses to start on an out-of-date schema.
+
+Before migrating, `upgrade_schema` calls
 `backup_service.create_pre_migration_snapshot` to protect an existing SQLite
 database whose schema needs upgrading. It keeps the newest three snapshots in
 `pre-upgrade/` beside the database and reuses the first recent snapshot of the
-same revision after a failed upgrade. Snapshot failure stops startup before
+same revision after a failed upgrade. Snapshot failure stops the upgrade before
 migration. This database-only safety net does not replace a full deployment
 backup for rollback.
 

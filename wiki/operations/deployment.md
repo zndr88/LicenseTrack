@@ -51,6 +51,7 @@ All variables are read from `.env` at container start. Restart the container aft
 | `STRICT_REQUEST_FIELDS` | No | `false` | Reject API request fields an endpoint doesn't define (422). Default `false`: they are ignored and logged as a warning. |
 | `CORS_ORIGINS` | No | `http://localhost:8080` | Browser URL(s) allowed to call the API. Must match exactly. |
 | `DATABASE_URL` | No | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. |
+| `RUN_MIGRATIONS_ON_STARTUP` | No | `true` | Upgrade the database schema at startup. Set `false` when upgrades run as a separate step; the app then refuses to start until the schema is current. |
 | `STORAGE_PATH` | No | `/data/storage` | Uploaded document storage path. |
 | `BACKUP_LOCATION` | No | `/data/backups` | Database backup output path. |
 | `RESTART_AFTER_RESTORE` | No | `true` in Docker Compose, `false` in direct backend runs | Exit the backend after database restore so a process manager can restart it. Set `false` for local development without a restart supervisor. |
@@ -138,12 +139,18 @@ The named `license_lifecycle_data` volume covers `/data`, including `/data/plugi
 
 On startup the backend:
 
-- runs Alembic migrations to `head`;
+- upgrades the database schema to the current release (after taking a pre-upgrade snapshot of a SQLite database), unless `RUN_MIGRATIONS_ON_STARTUP` is `false`; then it only checks that the schema is current and refuses to start if not;
 - validates `JWT_SECRET` and `ADMIN_PASSWORD`;
 - seeds the local break-glass `admin` user, `GlobalSettings`, and admin `UserSettings` if the database has not been seeded;
 - starts the background scheduler.
 
-For local development you may still run `alembic upgrade head` and `python -m app.seed` manually before starting Uvicorn. In Docker, startup performs those operational steps automatically after configuration validation.
+To upgrade the database as a separate step, run `python -m app.upgrade` from the
+backend folder (in Docker: `docker compose run --rm license-lifecycle python -m app.upgrade`)
+with the same configuration as the app. It takes the same pre-upgrade snapshot and
+exits with code 0 when the schema is current. Use it with
+`RUN_MIGRATIONS_ON_STARTUP=false` when several copies of the app start at once, so
+only one process upgrades. For local development you may still run
+`python -m app.seed` manually before starting Uvicorn.
 
 ## Persistent data
 
