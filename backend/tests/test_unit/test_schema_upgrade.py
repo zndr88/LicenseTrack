@@ -7,6 +7,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from app import upgrade as upgrade_command
 from app.config import settings
 from app.services import schema_upgrade
 
@@ -84,3 +85,16 @@ async def test_schema_is_current_false_for_empty_database(tmp_path):
         assert await schema_upgrade.schema_is_current(engine) is False
     finally:
         await engine.dispose()
+
+
+def test_upgrade_command_exits_zero_on_success(monkeypatch):
+    monkeypatch.setattr(upgrade_command, "upgrade_schema", lambda: None)
+    assert upgrade_command.main() == 0
+
+
+def test_upgrade_command_exits_one_on_failure(monkeypatch):
+    def failing():
+        raise RuntimeError("bad migration")
+
+    monkeypatch.setattr(upgrade_command, "upgrade_schema", failing)
+    assert upgrade_command.main() == 1
