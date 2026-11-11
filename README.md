@@ -10,15 +10,20 @@ source of truth and audit trail that general ordering tools usually do not.
 LicenseTrack is source-available software. See [Licensing](#licensing) before
 using, modifying, or redistributing it.
 
-## LicenseTrack 1.2.0
+## LicenseTrack 1.2.1
 
 [![LicenseTrack portfolio overview from the 1.2.0 trailer](landing/media/portfolio.gif)](https://zndr88.github.io/LicenseTrack/#release-trailer)
 
 [Watch the release trailer](https://zndr88.github.io/LicenseTrack/#release-trailer).
 
-Version 1.2.0 adds Registry grouping and generated PO line numbers, with
+Version 1.2.1 is a fix release for 1.2.0, with security dependency updates
+and fixes for native rollback on SELinux systems and portfolio reset. See the
+[release notes](CHANGELOG.md#121---2026-10-29) and
+[upgrade guide](wiki/operations/upgrade.md#upgrading-to-121).
+
+Version 1.2.0 added Registry grouping and generated PO line numbers, with
 improvements to maintenance, numeric input, CSV import/export and procurement
-evidence handling. See the [release notes](CHANGELOG.md#120---2026-10-04)
+evidence handling. See the [1.2.0 release notes](CHANGELOG.md#120---2026-10-04)
 and [upgrade guide](wiki/operations/upgrade.md#upgrading-to-120).
 
 > [!TIP]

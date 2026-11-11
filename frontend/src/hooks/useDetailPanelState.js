@@ -53,7 +53,19 @@ export function useDetailPanelState({
   const [savingLicense, setSavingLicense] = useState(false);
   const [noticeActionBusy, setNoticeActionBusy] = useState(false);
   const [editError, setEditError] = useState(null);
-  const [toast, setToast] = useState(null);
+  const [toast, setToastState] = useState(null);
+  const toastTimerRef = useRef(null);
+  // Shared by the whole panel. Pass autoDismissMs to clear the toast later;
+  // any new toast replaces the pending timer, and unmount cancels it.
+  const setToast = useCallback((msg, autoDismissMs = null) => {
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = null;
+    setToastState(msg);
+    if (msg != null && autoDismissMs) {
+      toastTimerRef.current = setTimeout(() => setToastState(null), autoDismissMs);
+    }
+  }, []);
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [maintenanceHistory, setMaintenanceHistory] = useState([]);
@@ -211,8 +223,7 @@ export function useDetailPanelState({
     }
     await refreshAfterPluginSuggestionReview();
     const fields = data?.appliedFields?.join(", ");
-    setToast(fields ? `Applied Official Extension suggestions: ${fields}.` : "Official Extension suggestions applied.");
-    setTimeout(() => setToast(null), 5000);
+    setToast(fields ? `Applied Official Extension suggestions: ${fields}.` : "Official Extension suggestions applied.", 5000);
   };
 
   const handleRejectPluginSuggestion = async (suggestion) => {
@@ -231,8 +242,7 @@ export function useDetailPanelState({
           return;
         }
         await loadPluginSuggestions();
-        setToast("Official Extension suggestions rejected.");
-        setTimeout(() => setToast(null), 5000);
+        setToast("Official Extension suggestions rejected.", 5000);
       },
     });
   };
@@ -271,8 +281,7 @@ export function useDetailPanelState({
       return;
     }
     onUpdate(license.id, normalizeLicense(data));
-    setToast("Notice deadline marked handled.");
-    setTimeout(() => setToast(null), 5000);
+    setToast("Notice deadline marked handled.", 5000);
   };
 
   // Quick link to an existing maintenance record (full edit and Edit coverage).

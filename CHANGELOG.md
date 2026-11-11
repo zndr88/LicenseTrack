@@ -30,6 +30,43 @@ contracts will be called out under a **Breaking** heading in future releases.
 - Restoring a backup no longer leaves temporary database files behind in the
   database folder.
 
+## [1.2.1] - 2026-10-29
+
+This fix release for 1.2.0 updates dependencies for security advisories and
+fixes native rollback on SELinux systems and portfolio reset. It adds no
+database migrations; see the
+[upgrade guide](wiki/operations/upgrade.md#upgrading-to-121).
+
+### Fixed
+
+- Portfolio reset no longer fails with a database check-constraint error when
+  the portfolio contains maintenance records linked to a parent license.
+- A confirmation message that appears shortly after another one is no longer
+  dismissed early by the earlier message's timer.
+- On native installs with SELinux enforcing (the default on RHEL, Rocky Linux and
+  AlmaLinux), restoring a pre-upgrade backup, by `licensetrack rollback` or by the
+  automatic rollback after a failed upgrade, no longer leaves the service unable
+  to start. The restore now resets SELinux labels and restores owner-only
+  permissions on the database file.
+
+### Security
+
+- Updated the build-time `source-map-js` dependency to 1.2.2 for
+  GHSA-68fv-2mgg-jv7q. It is used only while building the frontend and is not
+  part of the shipped application.
+- Updated Authlib to 1.9.1 (with joserfc 1.7.7 and cryptography 50.0.2) for
+  CVE-2026-96760, CVE-2026-114615 and related Authlib advisories. LicenseTrack
+  uses Authlib only for the OIDC authorization-code token exchange and validates
+  ID tokens with joserfc directly, so the affected Authlib code paths are not
+  used, but the patched release is now shipped.
+- Updated DOMPurify to 3.4.17 for GHSA-cg2g-xh64-v4q7. It is an optional
+  dependency of the PDF export library; LicenseTrack does not use the affected
+  `SAFE_FOR_TEMPLATES` mode.
+- Updated build and test tooling (Vite 8.3.4, Vitest 5.0.5, undici 8.12.3 and
+  related patch releases) for Vite, launch-editor, `@vitest/mocker` and undici
+  advisories. These are used only during development and are not part of the
+  shipped application.
+
 ## [1.2.0] - 2026-10-04
 
 This release adds Registry grouping and generated PO line numbers, unifies
@@ -2044,7 +2081,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/zndr88/LicenseTrack/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/zndr88/LicenseTrack/compare/v1.1.24...v1.2.0
 [1.1.24]: https://github.com/zndr88/LicenseTrack/compare/v1.1.23...v1.1.24
 [1.1.23]: https://github.com/zndr88/LicenseTrack/compare/v1.1.22...v1.1.23

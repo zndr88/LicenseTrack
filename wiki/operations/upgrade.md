@@ -29,6 +29,16 @@ retrying the upgrade.
 
 ## Before upgrading
 
+### Upgrading to 1.2.1
+
+1.2.1 is a fix release for 1.2.0 and adds no database migrations. Follow the
+normal upgrade steps below. When upgrading from a release before 1.2.0, also
+follow the 1.2.0 guidance.
+
+Native installs on systems with SELinux enforcing: see
+[SELinux enforcing on 1.2.0 and earlier](native-upgrade.md#operator-initiated-rollback)
+if you need to roll back to a 1.2.0 or earlier archive.
+
 ### Upgrading to 1.2.0
 
 When upgrading from 1.1.24, five migrations run through the normal startup
@@ -205,7 +215,7 @@ curl http://localhost:8080/api/health
 The health response should include the expected version:
 
 ```json
-{"status":"ok","version":"1.2.0"}
+{"status":"ok","version":"1.2.1"}
 ```
 
 Log in and smoke-test license listing, document downloads, settings, backup listing, and any configured SMTP/OIDC integrations.
@@ -278,7 +288,7 @@ podman rm licensetrack
 Build the new image from the release source:
 
 ```bash
-podman build -t license-lifecycle-system:1.2.0 .
+podman build -t license-lifecycle-system:1.2.1 .
 ```
 
 Start the new container with the same volume mounted at `/data`:
@@ -287,7 +297,7 @@ Start the new container with the same volume mounted at `/data`:
 podman run -d --name licensetrack -p 8080:8000 \
   --env-file .env \
   -v license_lifecycle_data:/data \
-  license-lifecycle-system:1.2.0
+  license-lifecycle-system:1.2.1
 ```
 
 Check health:

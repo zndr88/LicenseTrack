@@ -107,11 +107,16 @@ export default function SourcingPage({
   const [localToast, setLocalToast] = useState(null);
   const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
   const tableRef = useRef(null);
+  const toastTimerRef = useRef(null);
 
+  // One timer at a time: a new toast restarts it, and unmount cancels it.
   const showToast = useCallback((msg, type = "success", action = null) => {
     setLocalToast({ msg, type, action });
-    setTimeout(() => setLocalToast(null), 5000);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setLocalToast(null), 5000);
   }, []);
+
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
   const openSourcingRequest = useCallback((requestId) => {
     if (requestId == null) return;
@@ -199,7 +204,7 @@ export default function SourcingPage({
     }
     openSourcingRequest(parentRequest.id);
     const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
     setHighlightedRowId(highlightId);
     const t = setTimeout(() => {
       setHighlightedRowId(null);
@@ -250,7 +255,7 @@ export default function SourcingPage({
     setExpandedHistoryRequestId(parentRequest.id);
     const scrollTimer = setTimeout(() => {
       const el = document.querySelector(`[data-sourcing-row="${highlightId}"]`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
     }, 50);
     setHighlightedRowId(highlightId);
     const clearTimer = setTimeout(() => {

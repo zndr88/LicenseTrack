@@ -16,7 +16,7 @@ from app.models.contract import Contract, ContractDocument, ContractFolder
 from app.models.custom_fields import CustomFieldValue
 from app.models.document import Document, ProcurementDocument
 from app.models.document_processing import DocumentProcessingResult
-from app.models.license import License
+from app.models.license import License, LicenseType
 from app.models.license_ref_seq import LicenseRefSequence
 from app.models.pending_order import PendingOrder
 from app.models.plugin_suggestion import PluginSuggestion
@@ -118,6 +118,15 @@ async def reset_portfolio(
             # deleting the lifecycle table. Self-references disappear together
             # in the table-wide License DELETE.
             await db.execute(update(SourcingItem).values(renewal_for_license_id=None))
+            # SQLite deletes row by row, so a parent can go before its
+            # maintenance child and ON DELETE SET NULL clears the child's
+            # parent link mid-statement. Only retired maintenance may lack a
+            # parent, so retire every maintenance row before the delete.
+            await db.execute(
+                update(License)
+                .where(License.license_type == LicenseType.maintenance)
+                .values(is_retired=True)
+            )
 
             await db.execute(delete(DocumentProcessingResult))
             await db.execute(delete(PluginSuggestion))

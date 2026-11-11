@@ -1380,6 +1380,25 @@ def validate_rollback_target(archive: Path, paths: InstallPaths, current_state: 
     return RollbackTarget(archive=archive, state=previous_state, release=release)
 
 
+def restore_default_security_labels(paths_to_relabel: list[Path]) -> None:
+    """Reset SELinux labels on restored files to the system defaults.
+
+    Restored files are copied out of a temporary folder under /tmp and keep
+    its label otherwise; with SELinux enforcing, systemd then cannot read the
+    configuration and the service does not start. Does nothing when SELinux
+    is not enabled.
+    """
+    selinuxenabled = shutil.which("selinuxenabled")
+    restorecon = shutil.which("restorecon")
+    if selinuxenabled is None or restorecon is None:
+        return
+    if subprocess.run([selinuxenabled], check=False).returncode != 0:
+        return
+    existing = [path for path in paths_to_relabel if path.exists()]
+    if existing:
+        run([restorecon, "-RF", *existing])
+
+
 def restore_upgrade_backup(archive: Path, paths: InstallPaths) -> dict:
     data_root = Path(paths.data_root).resolve()
     _assert_safe_restore_root(data_root)
@@ -1412,6 +1431,8 @@ def restore_upgrade_backup(archive: Path, paths: InstallPaths) -> dict:
         shutil.copy2(extraction_root / "database-snapshot.db", db_path)
         Path(str(db_path) + "-wal").unlink(missing_ok=True)
         Path(str(db_path) + "-shm").unlink(missing_ok=True)
+        os.chmod(db_path, 0o600)
+        shutil.chown(db_path, user=paths.service_user, group=paths.service_group)
 
         shutil.copy2(extraction_root / "config" / "licensetrack.env", paths.config_file)
         os.chmod(paths.config_file, 0o640)
@@ -1428,6 +1449,7 @@ def restore_upgrade_backup(archive: Path, paths: InstallPaths) -> dict:
         )
         write_json(paths.state_file, previous_state)
 
+        restored_external: list[Path] = []
         for index, external_name in enumerate(manifest.get("external_paths", [])):
             external_path = Path(external_name).resolve()
             _assert_safe_restore_root(external_path)
@@ -1435,8 +1457,13 @@ def restore_upgrade_backup(archive: Path, paths: InstallPaths) -> dict:
             shutil.rmtree(external_path, ignore_errors=True)
             shutil.copytree(source, external_path, symlinks=True)
             recursive_chown(external_path, paths.service_user, paths.service_group)
+            restored_external.append(external_path)
 
     prepare_data_directories(paths)
+    restored_paths = [data_root, db_path, Path(paths.config_file), Path(paths.state_file)]
+    if cli_file is not None:
+        restored_paths.append(cli_file)
+    restore_default_security_labels(restored_paths + restored_external)
     info(f"Restored pre-upgrade backup {archive}.")
     return previous_state
 
