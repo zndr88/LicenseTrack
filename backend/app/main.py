@@ -4,10 +4,7 @@ import os
 import sys
 import time
 from contextlib import asynccontextmanager
-from functools import partial
 
-from alembic import command as alembic_command
-from alembic.config import Config as AlembicConfig
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -80,10 +77,16 @@ from app.routes import (
     users,
     webhooks,
 )
-from app.services.backup_service import create_pre_migration_snapshot
+from app.services import schema_upgrade
 from app.services.notification_scheduler import start_scheduler
 from app.services.restore_maintenance import restore_maintenance
+from app.services.schema_upgrade import schema_is_current
 from app.version import APP_VERSION
+
+
+class SchemaNotCurrentError(RuntimeError):
+    """Startup migrations are off and the database is not at this release's schema."""
+
 
 SPA_INDEX_CACHE_CONTROL = "no-cache, must-revalidate"
 IMMUTABLE_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
@@ -106,32 +109,20 @@ def spa_index_response(frontend_dist: str) -> FileResponse:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Run database migrations on every startup so the schema is always current.
-    # In a frozen PyInstaller bundle the alembic files live in sys._MEIPASS;
-    # in development they are resolved relative to the working directory.
-    if getattr(sys, "frozen", False):
-        alembic_cfg_path = os.path.join(os.path.dirname(sys.executable), "alembic.ini")
-    else:
-        alembic_cfg_path = "alembic.ini"
-    alembic_cfg = AlembicConfig(alembic_cfg_path)
+    # Upgrade the schema at startup (the default), or only check it when
+    # upgrades run as a separate step (`python -m app.upgrade`).
     loop = asyncio.get_running_loop()
-    try:
-        snapshot = await loop.run_in_executor(None, create_pre_migration_snapshot)
-    except Exception as exc:
-        logger.critical("Could not snapshot the database before upgrading: %s", exc)
-        logger.critical(
-            "The application will not migrate without a rollback point. Common causes are low disk space "
-            "or missing write permission on the database folder."
-        )
-        raise
-    if snapshot is not None:
-        logger.warning("Database schema upgrade pending; pre-upgrade snapshot: %s", snapshot)
-    try:
-        await loop.run_in_executor(None, partial(alembic_command.upgrade, alembic_cfg, "head"))
-    except Exception as exc:
-        logger.critical("Alembic migration failed: %s", exc)
-        logger.critical("The application cannot start. Check your database and migration files.")
-        raise
+    if settings.RUN_MIGRATIONS_ON_STARTUP:
+        await loop.run_in_executor(None, schema_upgrade.upgrade_schema)
+    else:
+        from app.database import engine as app_engine
+
+        if not await schema_is_current(app_engine):
+            logger.critical(
+                "The database schema does not match this release and RUN_MIGRATIONS_ON_STARTUP is off. "
+                "Run `python -m app.upgrade` first, then start the application."
+            )
+            raise SchemaNotCurrentError("Database schema does not match this release")
 
     secret = settings.JWT_SECRET
     if not secret or secret.strip().lower() in _WEAK_JWT_SECRETS:
