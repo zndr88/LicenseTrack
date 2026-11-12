@@ -932,3 +932,47 @@ async def test_scheduler_does_not_auto_retry_after_failed_attempt_today(db_sessi
 
 async def _async_return(value):
     return value
+
+
+async def test_database_job_with_lock_is_skipped_when_another_copy_holds_it(monkeypatch):
+    ran: list[str] = []
+
+    async def job():
+        ran.append("job")
+        return 5
+
+    async def held(name, job, *, skipped=None, stale_after=None, session_factory=None):
+        return skipped
+
+    monkeypatch.setattr(notification_scheduler, "run_locked_job", held)
+
+    assert await notification_scheduler._run_database_job(job, skipped=0, lock="license_retirement") == 0
+    assert ran == []
+
+
+async def test_database_job_with_lock_uses_the_scheduler_session_factory(monkeypatch):
+    seen: dict = {}
+
+    async def job():
+        return 5
+
+    async def fake_run_locked_job(name, job, *, skipped=None, stale_after=None, session_factory=None):
+        seen.update(name=name, stale_after=stale_after, session_factory=session_factory)
+        return await job()
+
+    sentinel_factory = object()
+    monkeypatch.setattr(notification_scheduler, "run_locked_job", fake_run_locked_job)
+    monkeypatch.setattr(notification_scheduler, "AsyncSessionLocal", sentinel_factory)
+
+    assert await notification_scheduler._run_database_job(job, lock="scheduled_backup") == 5
+    assert seen["name"] == "scheduled_backup"
+    assert seen["session_factory"] is sentinel_factory
+    assert seen["stale_after"] == notification_scheduler.JOB_LOCK_STALE_AFTER["scheduled_backup"]
+
+
+def test_every_scheduler_lock_name_is_listed():
+    import inspect
+
+    source = inspect.getsource(notification_scheduler.start_scheduler)
+    for name in ("evidence_transfer_sweep", "license_retirement", "maintenance_hand_over", "scheduled_backup"):
+        assert f'lock="{name}"' in source, name
