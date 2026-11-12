@@ -40,3 +40,4 @@ from app.models.user_department_access import UserDepartmentAccess  # noqa: F401
 from app.models.webhook import WebhookDelivery, WebhookEndpoint  # noqa: F401
 
 from app.models.human_session import HumanSession  # noqa: F401
+from app.models.scheduler_job_lock import SchedulerJobLock  # noqa: F401
