@@ -10,7 +10,7 @@ import bcrypt
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.database import Base, get_db, enable_sqlite_foreign_keys
+from app.database import Base, get_db, configure_sqlite_connections
 
 # Import all models so SQLAlchemy's mapper registry is fully populated before
 # Base.metadata.create_all is called.  MUST appear before `from app.main
@@ -123,7 +123,7 @@ async def db_session():
     function complete isolation from every other test.
     """
     engine = create_async_engine(_TEST_DB_URL, echo=False)
-    enable_sqlite_foreign_keys(engine.sync_engine)
+    configure_sqlite_connections(engine.sync_engine)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

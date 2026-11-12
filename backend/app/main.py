@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import OperationalError
 
 from app.config import settings
 from app.request_context import current_request
@@ -188,6 +189,27 @@ app = FastAPI(
     lifespan=lifespan,
     **_docs_kwargs,
 )
+
+
+DATABASE_BUSY_RETRY_AFTER_SECONDS = 5
+
+
+def _is_database_locked(exc: OperationalError) -> bool:
+    message = str(exc.orig or exc).lower()
+    return "database is locked" in message or "database table is locked" in message
+
+
+@app.exception_handler(OperationalError)
+async def database_operational_error_handler(request: Request, exc: OperationalError) -> JSONResponse:
+    """A write that waited out the SQLite busy timeout is retryable: answer 503, not 500."""
+    if _is_database_locked(exc):
+        logger.warning("Database busy on %s %s; answered 503", request.method, request.url.path)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "The database is busy. Retry the request shortly."},
+            headers={"Retry-After": str(DATABASE_BUSY_RETRY_AFTER_SECONDS)},
+        )
+    return await unhandled_exception_handler(request, exc)
 
 
 @app.exception_handler(Exception)

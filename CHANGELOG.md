@@ -22,6 +22,21 @@ contracts will be called out under a **Breaking** heading in future releases.
   to stop the app from upgrading at startup; it then refuses to start until the
   database is current. Startup upgrades stay on by default.
 
+### Changed
+
+- The SQLite database now runs in WAL mode, which makes busy servers faster.
+  The database folder now also holds `licenses.db-wal` and `licenses.db-shm`
+  while the app runs; keep them with the database and keep it on a local disk.
+
+### Fixed
+
+- Several requests writing at the same time no longer fail with a server
+  error. A write now waits up to 15 seconds for the database; if it is still
+  busy, the API answers 503 with a `Retry-After` header so integrations can
+  retry.
+- Restoring a backup no longer leaves temporary database files behind in the
+  database folder.
+
 ## [1.2.1] - 2026-10-29
 
 This fix release for 1.2.0 updates dependencies for security advisories and
