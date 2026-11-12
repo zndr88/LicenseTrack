@@ -5,6 +5,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     DATABASE_URL: str = "sqlite+aiosqlite:///./licenses.db"
+    # Upgrade the database schema when the app starts. Turn off when upgrades
+    # run as a separate step (`python -m app.upgrade`), e.g. before several
+    # copies of the app start; the app then refuses to start on an old schema.
+    RUN_MIGRATIONS_ON_STARTUP: bool = True
     STORAGE_PATH: str = "./storage"
     JWT_SECRET: str = ""
     TOKEN_EXPIRY: int = 1440  # minutes; default 24h

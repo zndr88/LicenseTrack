@@ -9,6 +9,7 @@ services:
     environment:
       - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:////data/licenses.db}
+      - RUN_MIGRATIONS_ON_STARTUP=${RUN_MIGRATIONS_ON_STARTUP:-true}
       - STORAGE_PATH=${STORAGE_PATH:-/data/storage}
       - BACKUP_LOCATION=${BACKUP_LOCATION:-/data/backups}
       - RESTART_AFTER_RESTORE=${RESTART_AFTER_RESTORE:-true}
