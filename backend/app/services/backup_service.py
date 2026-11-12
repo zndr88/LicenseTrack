@@ -52,6 +52,17 @@ def get_db_path() -> Path:
     return Path(raw).resolve()
 
 
+def _remove_sqlite_sidecars(db_path: Path) -> None:
+    """Delete the -wal and -shm companion files of *db_path* if present.
+
+    Only call this when no connection to *db_path* is open: for the live
+    database after the engine is disposed, or for a temporary copy that is
+    being thrown away.
+    """
+    for suffix in ("-wal", "-shm"):
+        Path(str(db_path) + suffix).unlink(missing_ok=True)
+
+
 def _alembic_config(db_path: Path | None = None) -> AlembicConfig:
     backend_root = Path(__file__).resolve().parents[2]
     config = AlembicConfig(str(backend_root / "alembic.ini"))
@@ -143,6 +154,7 @@ def _copy_sqlite_database(source_path: Path, target_path: Path) -> None:
             source.close()
     except BaseException:
         target_path.unlink(missing_ok=True)
+        _remove_sqlite_sidecars(target_path)
         raise
 
 
@@ -294,6 +306,7 @@ def create_backup(backup_location: str) -> Path:
     finally:
         if tmp_path is not None:
             tmp_path.unlink(missing_ok=True)
+            _remove_sqlite_sidecars(tmp_path)
 
     # Verify the zip is not corrupted before returning it.
     with zipfile.ZipFile(zip_path, "r") as verify_zf:
@@ -395,6 +408,7 @@ def _create_database_and_storage_archive(
     finally:
         if tmp_path is not None:
             tmp_path.unlink(missing_ok=True)
+            _remove_sqlite_sidecars(tmp_path)
 
     with zipfile.ZipFile(zip_path, "r") as verify_zf:
         bad_file = verify_zf.testzip()
@@ -483,6 +497,7 @@ def inspect_backup_archive(zip_path: Path) -> dict:
                 schema_revision = validate_database_file(staged_path)
             finally:
                 staged_path.unlink(missing_ok=True)
+                _remove_sqlite_sidecars(staged_path)
 
             archive_type = "database_backup"
             manifest = {}
@@ -625,10 +640,12 @@ def restore_backup(zip_path: Path) -> Path:
         validate_database_file(staged_db)
     except ValueError:
         staged_db.unlink(missing_ok=True)
+        _remove_sqlite_sidecars(staged_db)
         raise
     except Exception:
         logger.exception("Could not migrate the staged restore database")
         staged_db.unlink(missing_ok=True)
+        _remove_sqlite_sidecars(staged_db)
         raise
 
     try:
@@ -648,11 +665,11 @@ def restore_backup(zip_path: Path) -> Path:
         # Remove stale WAL and SHM files before replacing the database.
         # If these survive the file swap, SQLite replays them against the freshly
         # restored database on the next connection, silently corrupting it.
-        Path(str(db_path) + "-wal").unlink(missing_ok=True)
-        Path(str(db_path) + "-shm").unlink(missing_ok=True)
+        _remove_sqlite_sidecars(db_path)
         staged_db.replace(db_path)
     finally:
         staged_db.unlink(missing_ok=True)
+        _remove_sqlite_sidecars(staged_db)
 
     logger.info("Restore complete. Safety snapshot saved as %s", safety_copy)
     return safety_copy

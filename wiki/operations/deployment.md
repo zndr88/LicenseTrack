@@ -50,7 +50,7 @@ All variables are read from `.env` at container start. Restart the container aft
 | `EXPOSE_API_DOCS` | No | `false` | Exposes `/docs`, `/redoc`, and `/openapi.json`. Enable only for local development. |
 | `STRICT_REQUEST_FIELDS` | No | `false` | Reject API request fields an endpoint doesn't define (422). Default `false`: they are ignored and logged as a warning. |
 | `CORS_ORIGINS` | No | `http://localhost:8080` | Browser URL(s) allowed to call the API. Must match exactly. |
-| `DATABASE_URL` | No | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. |
+| `DATABASE_URL` | No | `sqlite+aiosqlite:////data/licenses.db` | SQLite database connection string. Keep the database on a local disk, not a network share. |
 | `STORAGE_PATH` | No | `/data/storage` | Uploaded document storage path. |
 | `BACKUP_LOCATION` | No | `/data/backups` | Database backup output path. |
 | `RESTART_AFTER_RESTORE` | No | `true` in Docker Compose, `false` in direct backend runs | Exit the backend after database restore so a process manager can restart it. Set `false` for local development without a restart supervisor. |
@@ -154,6 +154,12 @@ The volume is mounted at `/data` and contains:
 - `/data/licenses.db`
 - `/data/storage/`
 - `/data/backups/`
+
+SQLite runs in WAL mode, so the database folder also holds `licenses.db-wal` and
+`licenses.db-shm` while the app runs. They belong to the database: never delete
+them while the app is running, and never copy `licenses.db` on its own as a
+backup. Use the in-app backup instead. WAL needs a local disk; network shares
+(NFS, SMB) are not supported for the database.
 
 Back up the full volume for a complete snapshot of the database, uploaded documents, and database backup files.
 
