@@ -27,6 +27,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - The SQLite database now runs in WAL mode, which makes busy servers faster.
   The database folder now also holds `licenses.db-wal` and `licenses.db-shm`
   while the app runs; keep them with the database and keep it on a local disk.
+- When more than one copy of LicenseTrack shares a database, license retirement,
+  maintenance hand-over, the evidence-transfer retry and the scheduled backup now
+  run in only one copy at a time.
 
 ### Fixed
 
