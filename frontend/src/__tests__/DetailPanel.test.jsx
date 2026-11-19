@@ -2461,3 +2461,78 @@ describe('DetailPanel remembered sections', () => {
     expect(sectionHeader('dates')).toHaveAttribute('aria-expanded', 'true')
   })
 })
+
+describe('DetailPanel copy buttons', () => {
+  let writeText
+  const refLicense = {
+    ...baseLicense,
+    externalRef: 'ERP-4411',
+    invoiceNumber: 'INV-001',
+    invoiceNumbers: ['INV-001', 'INV-002'],
+  }
+
+  beforeEach(() => {
+    writeText = vi.fn().mockResolvedValue()
+    Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: { writeText } })
+  })
+
+  afterEach(() => {
+    Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: undefined })
+  })
+
+  async function copy(name) {
+    fireEvent.click(screen.getByRole('button', { name }))
+    await waitFor(() => expect(writeText).toHaveBeenCalled())
+    return writeText.mock.calls.at(-1)[0]
+  }
+
+  it('copies the LT reference and confirms it', async () => {
+    render(<DetailPanel {...baseProps} license={refLicense} />)
+
+    expect(await copy('Copy LT reference')).toBe('LT-2026-00001')
+    expect(await screen.findByText('LT reference copied')).toBeInTheDocument()
+  })
+
+  it('copies the external reference', async () => {
+    render(<DetailPanel {...baseProps} license={refLicense} />)
+
+    expect(await copy('Copy external reference')).toBe('ERP-4411')
+  })
+
+  it('copies the PO number, contract number and invoice numbers', async () => {
+    render(<DetailPanel {...baseProps} license={refLicense} />)
+    fireEvent.click(screen.getByText('Key Dates & Contract'))
+
+    expect(await copy('Copy PO number')).toBe('PO-001')
+    expect(await copy('Copy contract number')).toBe('C-001')
+    expect(await copy('Copy invoice numbers')).toBe('INV-001, INV-002')
+    expect(await screen.findByText('2 invoice numbers copied')).toBeInTheDocument()
+  })
+
+  it('offers no copy button for an empty value', () => {
+    render(<DetailPanel {...baseProps} license={{ ...baseLicense, poNumber: '', contractNumber: '', invoiceNumber: '', invoiceNumbers: [] }} />)
+    fireEvent.click(screen.getByText('Key Dates & Contract'))
+
+    expect(screen.queryByRole('button', { name: 'Copy PO number' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy contract number' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy invoice numbers' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy external reference' })).not.toBeInTheDocument()
+  })
+
+  it('copies a link to the license by its LT reference', async () => {
+    render(<DetailPanel {...baseProps} license={refLicense} />)
+
+    expect(await copy('Copy link')).toBe(`${window.location.origin}/licenses/LT-2026-00001`)
+    expect(await screen.findByText('Link copied')).toBeInTheDocument()
+  })
+
+  it('says so when copying is not possible', async () => {
+    Object.defineProperty(window.navigator, 'clipboard', { configurable: true, value: undefined })
+    render(<DetailPanel {...baseProps} license={refLicense} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy LT reference' }))
+
+    const notice = await screen.findByRole('alert')
+    expect(notice).toHaveTextContent('Could not copy')
+  })
+})

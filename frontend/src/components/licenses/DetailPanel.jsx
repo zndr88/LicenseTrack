@@ -22,16 +22,30 @@ import InvoiceNumbersModal from "./InvoiceNumbersModal.jsx";
 import SecondaryContactsModal from "./SecondaryContactsModal.jsx";
 import ExistingSuccessorModal from "./ExistingSuccessorModal.jsx";
 import Icon from "../ui/Icon.jsx";
+import CopyButton from "../ui/CopyButton.jsx";
+import { pathForState } from "../../utils/appRoutes.js";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import MessageBanner from "../ui/MessageBanner.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { supportsMaintenanceCoverage } from "../../utils/maintenanceCoverage.js";
 
-function DetailPanelHeader({ canEdit, editingLicense, onStartEdit, onClose }) {
+// The demo build has no addresses per license (see useUrlSync).
+const LICENSE_LINKS = import.meta.env.VITE_DEMO_MODE !== "true";
+
+function licenseLink(license) {
+  return window.location.origin + pathForState({ page: "licenses", licenseKey: license.licenseRef || license.id });
+}
+
+function DetailPanelHeader({ license, canEdit, editingLicense, onStartEdit, onClose, setToast }) {
   return (
     <div className="dp-panel-header">
       <span className="dp-panel-header-title">License Details</span>
       <div className="dp-panel-header-actions">
+        {LICENSE_LINKS && (
+          <CopyButton value={licenseLink(license)} label="link" onNotify={setToast} className="btn btn-g btn-sm">
+            <Icon name="link" size={12} /> Copy link
+          </CopyButton>
+        )}
         {canEdit && !editingLicense && (
           <button className="btn btn-g btn-sm" onClick={onStartEdit}>
             <Icon name="edit" size={12} /> Edit
@@ -105,6 +119,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
 
       {/* Panel Header (always visible) */}
       <DetailPanelHeader
+        license={license}
+        setToast={setToast}
         canEdit={perms.canEdit}
         editingLicense={editingLicense}
         onStartEdit={handleStartFullEdit}
@@ -146,6 +162,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               comp={comp}
               vis={vis}
               isOpen={openSections.identity}
+              setToast={setToast}
               onToggle={toggleSection}
               onNavigate={onNavigate}
               openFieldEdit={openFieldEdit}
@@ -185,6 +202,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
               perms={perms}
               userSettings={userSettings}
               isOpen={openSections.dates}
+              setToast={setToast}
               onToggle={toggleSection}
               contracts={contracts}
               onNavigateToContract={onNavigateToContract}
