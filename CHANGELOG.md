@@ -70,6 +70,12 @@ contracts will be called out under a **Breaking** heading in future releases.
   contract now follow a rename. New licenses are linked to their contract
   whichever way they are created, and recording a contract links the licenses
   that already use its number.
+- A routine database backup that failed part-way, for example on a full disk,
+  left an incomplete zip file in the backup folder, and retention counted it
+  as a backup, so it could push good backups out. A backup now only appears
+  in the folder once it is complete and verified. Retention counts readable
+  backups only; a file it cannot read is reported in the log and left in
+  place.
 
 ## [1.2.1] - 2026-10-29
 
