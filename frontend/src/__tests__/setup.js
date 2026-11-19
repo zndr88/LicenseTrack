@@ -14,3 +14,10 @@ Object.defineProperty(URL, 'revokeObjectURL', {
   writable: true,
   value: () => {},
 })
+
+// Browser storage must not carry over from one test to the next (remembered
+// License Details sections, session markers).
+beforeEach(() => {
+  window.localStorage.clear()
+  window.sessionStorage.clear()
+})
