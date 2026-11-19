@@ -4,6 +4,7 @@ import { daysBetween, todayStr } from "../../../utils/helpers.js";
 import { isMaintenanceParentType } from "../../../utils/maintenanceCoverage.js";
 import { INLINE_LICENSE_TYPE_HINT, inlineLicenseTypeOptions } from "../../../utils/licenseTypeRules.js";
 import Icon from "../../ui/Icon.jsx";
+import CopyButton from "../../ui/CopyButton.jsx";
 import Badge from "../../ui/Badge.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
@@ -16,6 +17,7 @@ export default function IdentitySection({
   exp,
   comp,
   vis,
+  setToast,
   isOpen,
   onToggle,
   onNavigate,
@@ -100,8 +102,15 @@ export default function IdentitySection({
               )}
             </div>
             {license.licenseRef && userSettings.visibleInDetail?.licenseRef !== false && (
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)", marginTop: 2, letterSpacing: "0.04em" }}>
-                {license.licenseRef}{license.externalRef ? ` | ${license.externalRef}` : ""}
+              <div className="dp-field" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)", marginTop: 2, marginBottom: 0, letterSpacing: "0.04em" }}>
+                {license.licenseRef}
+                <CopyButton value={license.licenseRef} label="LT reference" onNotify={setToast} />
+                {license.externalRef ? (
+                  <>
+                    {" | "}{license.externalRef}
+                    <CopyButton value={license.externalRef} label="external reference" onNotify={setToast} />
+                  </>
+                ) : null}
               </div>
             )}
             <div className="dp-badge-row dp-field">
