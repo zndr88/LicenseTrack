@@ -24,6 +24,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Changed
 
+- License Details remembers which sections you leave open and opens the
+  next license the same way. This is kept per user in the browser; a link to
+  a section still opens that section.
 - The SQLite database now runs in WAL mode, which makes busy servers faster.
   The database folder now also holds `licenses.db-wal` and `licenses.db-shm`
   while the app runs; keep them with the database and keep it on a local disk.
