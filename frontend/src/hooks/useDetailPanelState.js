@@ -21,6 +21,7 @@ import { useLicenseDocuments } from "./useLicenseDocuments.js";
 import { useToast } from "./useToast.js";
 import { useCustomFields } from "./useCustomFields.js";
 import { useDetailSectionLink } from "./useDetailSectionLink.js";
+import { loadOpenSections, saveOpenSections } from "../utils/detailSectionMemory.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
 import { formatSecondaryContacts, parseSecondaryContacts } from "../utils/secondaryContacts.js";
 import { typeOptInPayload } from "../utils/licenseTypeRules.js";
@@ -28,6 +29,20 @@ import { isMaintenanceParentType } from "../utils/maintenanceCoverage.js";
 import { coversConfirmMessage, maintenanceCandidate } from "../utils/maintenanceLinking.js";
 import { useAllLicenses } from "./useAllLicenses.js";
 import { normaliseInvoiceNumbers, toEditableRows } from "../components/licenses/InvoiceNumberRows.jsx";
+
+const DEFAULT_OPEN_SECTIONS = {
+  identity:     true,
+  dates:        false,
+  maintenance:  false,
+  commercial:   false,
+  people:       false,
+  documents:    false,
+  pluginSuggestions: false,
+  completeness: false,
+  notes:        false,
+  customFields: false,
+  history:      false,
+};
 
 /**
  * Encapsulates all state, effects, handlers, and derived values for DetailPanel.
@@ -80,19 +95,11 @@ export function useDetailPanelState({
   const pluginSuggestionsRequestRef = useRef(0);
   latestLicenseIdRef.current = license.id;
 
-  const [openSections, setOpenSections] = useState({
-    identity:     true,
-    dates:        false,
-    maintenance:  false,
-    commercial:   false,
-    people:       false,
-    documents:    false,
-    pluginSuggestions: false,
-    completeness: false,
-    notes:        false,
-    customFields: false,
-    history:      false,
-  });
+  // Starts from the sections this user last left open (see detailSectionMemory).
+  const userId = user?.id;
+  const [openSections, setOpenSections] = useState(() => loadOpenSections(userId, DEFAULT_OPEN_SECTIONS));
+  const openSectionsRef = useRef(openSections);
+  openSectionsRef.current = openSections;
 
   const fetchMaintenanceHistory = useCallback(async (id) => {
     if (!isMaintenanceParentType(license.licenseType)) return;
@@ -112,8 +119,12 @@ export function useDetailPanelState({
   const updateSectionLink = useDetailSectionLink({ license, setOpenSections });
 
   const toggleSection = (key) => {
-    updateSectionLink(key, !openSections[key]);
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+    const current = openSectionsRef.current;
+    const next = { ...current, [key]: !current[key] };
+    openSectionsRef.current = next;
+    updateSectionLink(key, next[key]);
+    setOpenSections(next);
+    saveOpenSections(userId, next);
   };
 
   useEffect(() => {
