@@ -166,7 +166,15 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        # The system packages come from Ubuntu's package servers, which
+        # occasionally refuse a download; retry before failing the job.
+        run: |
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "Playwright install failed (attempt $attempt of 3)."
+            if [ "$attempt" -lt 3 ]; then sleep 20; fi
+          done
+          exit 1
 
       - name: Run e2e tests
         run: npm run test:e2e
@@ -190,7 +198,15 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        # The system packages come from Ubuntu's package servers, which
+        # occasionally refuse a download; retry before failing the job.
+        run: |
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "Playwright install failed (attempt $attempt of 3)."
+            if [ "$attempt" -lt 3 ]; then sleep 20; fi
+          done
+          exit 1
 
       - name: Run demo golden path
         run: npm run test:e2e:demo
@@ -224,7 +240,15 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        # The system packages come from Ubuntu's package servers, which
+        # occasionally refuse a download; retry before failing the job.
+        run: |
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "Playwright install failed (attempt $attempt of 3)."
+            if [ "$attempt" -lt 3 ]; then sleep 20; fi
+          done
+          exit 1
 
       - name: Run real-backend e2e tests
         env:
