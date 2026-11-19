@@ -2332,6 +2332,48 @@ describe('DetailPanel leaving the full edit form', () => {
     expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
   })
 
+  it('closes the panel on Escape when nothing is being edited', async () => {
+    render(<Harness onUpdate={vi.fn()} />)
+    act(() => navigation.handleSetSelectedId(1))
+
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+
+    await waitFor(() => expect(navigation.selectedId).toBeNull())
+  })
+
+  it('asks before Escape discards changes, and a second Escape keeps editing', async () => {
+    const { user } = await openEditOnA({ dirty: true })
+
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(discardDialog()).toBeInTheDocument()
+    expect(navigation.selectedId).toBe(1)
+
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(discardDialog()).not.toBeInTheDocument()
+    expect(navigation.selectedId).toBe(1)
+    expect(screen.getByLabelText('Notes / Comments')).toHaveValue('Typed on A')
+
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+    await waitFor(() => expect(navigation.selectedId).toBeNull())
+  })
+
+  it('leaves the panel open when Escape closes a dialog on top of it', async () => {
+    const user = userEvent.setup()
+    render(<Harness onUpdate={vi.fn()} />)
+    act(() => navigation.handleSetSelectedId(1))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    fireEvent.change(screen.getByLabelText('Notes / Comments'), { target: { value: 'Typed on A' } })
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(discardDialog()).toBeInTheDocument()
+
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+
+    expect(discardDialog()).not.toBeInTheDocument()
+    expect(navigation.selectedId).toBe(1)
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument()
+  })
+
   it('asks before the close button discards changes', async () => {
     const { user } = await openEditOnA({ dirty: true })
 

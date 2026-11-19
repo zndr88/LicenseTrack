@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getLicense } from "../../api/licenses.js";
 import { useDetailPanelState } from "../../hooks/useDetailPanelState.js";
 import LicenseEditForm from "./detail/LicenseEditForm.jsx";
@@ -75,6 +75,20 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     makeCustomFieldSaveFn,
     comp, exp, perms, vis,
   } = useDetailPanelState({ license, onUpdate, onClose, userSettings, globalSettings, user, onPreviewDocument, onRegisterLeaveGuard });
+  // Escape closes the panel, like its close button (which asks first when an
+  // edit has unsaved changes). An open dialog, menu or list handles Escape itself.
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"], [role="menu"]')) return;
+      if (event.target?.closest?.('[role="combobox"][aria-expanded="true"]')) return;
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   const [showLegacyLinkModal, setShowLegacyLinkModal] = useState(false);
   const [showExistingSuccessorModal, setShowExistingSuccessorModal] = useState(false);
   // Transient: hidden only for the license it was dismissed on, and never persisted,

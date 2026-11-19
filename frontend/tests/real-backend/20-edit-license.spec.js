@@ -54,6 +54,38 @@ test("switching to another license mid-edit asks first and leaves both licenses 
   expect(await apiGet(page, "/api/licenses")).toEqual(before);
 });
 
+test("Escape closes a dialog first, asks about unsaved edits, then closes the panel", async ({ page }) => {
+  await page.goto("/");
+  const license = await findLicense(page, "E2E Subscription");
+  await openLicense(page, license.id);
+  const panelUrl = new RegExp(`/licenses/${license.id}(#.*)?$`);
+
+  // A small dialog on top of the panel: Escape closes only the dialog.
+  await openDetailSection(page, "Details");
+  await page.getByRole("button", { name: "Edit unit price" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page).toHaveURL(panelUrl);
+
+  // An edit with changes: Escape asks, a second Escape returns to the form.
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator("#license-edit-notes").fill("Typed but never saved");
+  const discardDialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
+  await page.keyboard.press("Escape");
+  await expect(discardDialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(discardDialog).toBeHidden();
+  await expect(page.locator("#license-edit-notes")).toHaveValue("Typed but never saved");
+
+  // Discarding closes the panel; the license is unchanged.
+  await page.keyboard.press("Escape");
+  await discardDialog.getByRole("button", { name: "Discard" }).click();
+  await expect(page).toHaveURL(/\/licenses$/);
+  await expect(page.getByText("License Details")).toBeHidden();
+  expect((await findLicense(page, "E2E Subscription")).notes).toBe(license.notes);
+});
+
 test("inline edit keeps 0,125 as 0.125 under a comma-decimal number format", async ({ page }) => {
   await setNumberFormat(page, "de-DE");
   try {

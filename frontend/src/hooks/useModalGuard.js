@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 
 /**
  * Intercepts modal close attempts when isDirty is true.
@@ -8,7 +8,8 @@ import { useEffect, useCallback, useState } from "react";
  *   const { showDiscardDialog, setShowDiscardDialog, requestClose } =
  *     useModalGuard({ isDirty, onClose });
  *
- *   // Use requestClose instead of calling onClose directly.
+ *   // Use requestClose instead of calling onClose directly, including as the
+ *   // ModalShell onClose, which is also what Escape calls.
  *   // Render <DiscardChangesDialog> when showDiscardDialog is true.
  */
 export function useModalGuard({ isDirty, onClose }) {
@@ -21,20 +22,6 @@ export function useModalGuard({ isDirty, onClose }) {
       onClose();
     }
   }, [isDirty, onClose]);
-
-  // Intercept Escape key
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "Escape") {
-        if (e.target?.closest?.('[role="combobox"][aria-expanded="true"]')) return;
-        e.preventDefault();
-        e.stopPropagation();
-        requestClose();
-      }
-    };
-    document.addEventListener("keydown", handler, true);
-    return () => document.removeEventListener("keydown", handler, true);
-  }, [requestClose]);
 
   return { showDiscardDialog, setShowDiscardDialog, requestClose };
 }

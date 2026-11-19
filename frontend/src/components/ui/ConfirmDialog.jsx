@@ -21,7 +21,7 @@ const ConfirmDialog = ({
       modalClassName="modal confirm-dialog-modal"
       footer={(
         <>
-          <button className="btn btn-g" onClick={onCancel}>{cancelLabel || "Cancel"}</button>
+          <button className="btn btn-g" onClick={onCancel} autoFocus>{cancelLabel || "Cancel"}</button>
           <button className={`btn ${danger ? "btn-d" : "btn-p"}`} onClick={onConfirm} disabled={confirmDisabled}>
             {confirmLabel || "Confirm"}
           </button>
