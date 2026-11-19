@@ -194,16 +194,16 @@ async def test_update_contract_number_cascades_to_linked_licenses(
         contract_id=contract["id"],
         is_retired=False,
     )
-    unrelated = License(
+    number_only = License(
         publisher_name="Other",
-        software_description="Text-only legacy reference",
+        software_description="Matched by number only",
         license_type=LicenseType.subscription,
         license_metric=LicenseMetric.per_user,
         currency="EUR",
         contract_number="CN-2024-001",
         is_retired=False,
     )
-    db_session.add_all([lic1, lic2, unrelated])
+    db_session.add_all([lic1, lic2, number_only])
     await db_session.commit()
 
     resp = await test_app.put(
@@ -216,11 +216,81 @@ async def test_update_contract_number_cascades_to_linked_licenses(
 
     await db_session.refresh(lic1)
     await db_session.refresh(lic2)
-    await db_session.refresh(unrelated)
+    await db_session.refresh(number_only)
 
     assert lic1.contract_number == "CN-2024-999"
     assert lic2.contract_number == "CN-2024-999"
-    assert unrelated.contract_number == "CN-2024-001"  # text-only legacy row is untouched
+    # A license that belongs to the contract by number only follows the
+    # rename too, and is linked from then on.
+    assert number_only.contract_number == "CN-2024-999"
+    assert number_only.contract_id == contract["id"]
+
+    linked = await test_app.get(f"/api/contracts/{contract['id']}/licenses", headers=auth_headers)
+    assert {row["id"] for row in linked.json()} == {lic1.id, lic2.id, number_only.id}
+
+
+async def test_update_contract_number_leaves_other_contracts_licenses_alone(
+    test_app, auth_headers, db_session, contract
+):
+    other_number = License(
+        publisher_name="Other",
+        software_description="Different contract number",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        contract_number="CN-OTHER",
+        is_retired=False,
+    )
+    db_session.add(other_number)
+    await db_session.commit()
+
+    resp = await test_app.put(
+        f"/api/contracts/{contract['id']}",
+        json={"contract_number": "CN-2024-999"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+
+    await db_session.refresh(other_number)
+    assert other_number.contract_number == "CN-OTHER"
+    assert other_number.contract_id is None
+
+
+async def test_create_contract_links_licenses_that_already_use_its_number(
+    test_app, auth_headers, db_session
+):
+    existing = License(
+        publisher_name="Acme",
+        software_description="Bought before the contract was recorded",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        contract_number=" cn-early-1 ",
+        is_retired=False,
+    )
+    other = License(
+        publisher_name="Acme",
+        software_description="Another contract",
+        license_type=LicenseType.subscription,
+        license_metric=LicenseMetric.per_user,
+        currency="EUR",
+        contract_number="CN-EARLY-2",
+        is_retired=False,
+    )
+    db_session.add_all([existing, other])
+    await db_session.commit()
+
+    resp = await test_app.post(
+        "/api/contracts",
+        json={"contract_number": "CN-EARLY-1", "publisher_name": "Acme Corp"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201, resp.text
+
+    await db_session.refresh(existing)
+    await db_session.refresh(other)
+    assert existing.contract_id == resp.json()["id"]
+    assert other.contract_id is None
 
 
 async def test_delete_contract_returns_204(test_app, auth_headers, contract):

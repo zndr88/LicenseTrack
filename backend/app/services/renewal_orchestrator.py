@@ -40,6 +40,7 @@ from app.services.maintenance_rules import (
 )
 from app.services.po_line_service import sync_license_line
 from app.services.po_total_override_service import inherit_po_total_override
+from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.reference_data_service import resolve_license_reference_fields, resolve_organization
 from app.services.renewal_workflow import build_renewal_sourcing_item
 from app.services.custom_fields_service import snapshot_renewal_values
@@ -780,6 +781,7 @@ async def create_renewal_successor_from_sourcing_item(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"{validation_detail_prefix}{exc}") from exc
     await resolve_license_reference_fields(db, license_data)
+    license_data["contract_id"] = await resolve_contract_id_for_number(db, license_data.get("contract_number"))
 
     if (
         validate_maintenance_parent
