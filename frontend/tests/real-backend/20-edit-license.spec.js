@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { findLicense, openDetailSection, openLicense, setNumberFormat } from "./helpers.js";
+import { apiGet, findLicense, openDetailSection, openLicense, setNumberFormat } from "./helpers.js";
 
 test("full edit stores notes, PO number and end date and assigns a PO line", async ({ page }) => {
   await page.goto("/");
@@ -19,6 +19,39 @@ test("full edit stores notes, PO number and end date and assigns a PO line", asy
   expect(after.endDate).toBe("2027-06-30");
   expect(after.notes).toBe("Edited through the real form");
   expect(after.poLineNumber).toBeGreaterThanOrEqual(1);
+});
+
+test("switching to another license mid-edit asks first and leaves both licenses unchanged", async ({ page }) => {
+  await page.goto("/");
+  const edited = await findLicense(page, "E2E Subscription");
+  const before = await apiGet(page, "/api/licenses");
+  let updates = 0;
+  page.on("request", (req) => {
+    if (/\/api\/licenses\/\d+/.test(req.url()) && ["PUT", "PATCH"].includes(req.method())) updates += 1;
+  });
+
+  await openLicense(page, edited.id);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator("#license-edit-notes").fill("Typed but never saved");
+
+  const otherRow = page.getByRole("row").filter({ hasText: "E2E Perpetual Included" }).first();
+  const discardDialog = page.getByRole("dialog", { name: "Discard unsaved changes?" });
+
+  await otherRow.getByText("E2E Perpetual Included").first().click();
+  await expect(discardDialog).toBeVisible();
+  await discardDialog.getByRole("button", { name: "Keep editing" }).click();
+  await expect(page.locator("#license-edit-notes")).toHaveValue("Typed but never saved");
+  await expect(page).toHaveURL(new RegExp(`/licenses/${edited.id}$`));
+
+  await otherRow.getByText("E2E Perpetual Included").first().click();
+  await discardDialog.getByRole("button", { name: "Discard" }).click();
+  await expect(page).not.toHaveURL(new RegExp(`/licenses/${edited.id}$`));
+  await expect(page).toHaveURL(/\/licenses\/\d+$/);
+  await expect(page.getByRole("button", { name: "Save Changes" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeVisible();
+
+  expect(updates).toBe(0);
+  expect(await apiGet(page, "/api/licenses")).toEqual(before);
 });
 
 test("inline edit keeps 0,125 as 0.125 under a comma-decimal number format", async ({ page }) => {

@@ -36,6 +36,11 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Selecting another license while the License Details edit form was open kept
+  the form open, and saving then wrote the first license's values onto the
+  other license. The edit form now belongs to the license it was opened for,
+  and leaving it with unsaved changes (another license, Cancel, the close
+  button, another page or browser Back) asks before discarding them.
 - Several requests writing at the same time no longer fail with a server
   error. A write now waits up to 15 seconds for the database; if it is still
   busy, the API answers 503 with a `Retry-After` header so integrations can

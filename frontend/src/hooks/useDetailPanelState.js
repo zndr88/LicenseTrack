@@ -39,13 +39,22 @@ export function useDetailPanelState({
   globalSettings,
   user,
   onPreviewDocument,
+  onRegisterLeaveGuard,
 }) {
   const [confirmAction, setConfirmAction] = useState(null);
   const [fieldEdit, setFieldEdit] = useState(null);
   const [invoiceNumbersEdit, setInvoiceNumbersEdit] = useState(false);
   const [secondaryContactsEdit, setSecondaryContactsEdit] = useState(false);
-  const [editingLicense, setEditingLicense] = useState(false);
+  // The full edit belongs to the license it was opened for. It is only shown
+  // and saved while that license is still the selected one, so its values can
+  // never reach another record.
+  const [editingForId, setEditingForId] = useState(null);
+  const editingLicense = editingForId != null && editingForId === license.id;
   const [editFields, setEditFields] = useState({});
+  // Snapshot of the form as opened, to tell an untouched edit from a changed one.
+  const [editBaseline, setEditBaseline] = useState("");
+  // What to do once the user confirms discarding the edit; null when not asking.
+  const [pendingLeave, setPendingLeave] = useState(null);
   // Kept out of editFields so it never reaches the update request.
   const [quickLinkMaintenanceId, setQuickLinkMaintenanceId] = useState("");
   const { licenses: allLicenses } = useAllLicenses();
@@ -113,6 +122,8 @@ export function useDetailPanelState({
   };
 
   useEffect(() => {
+    setEditingForId(null);
+    setPendingLeave(null);
     maintenanceRequestRef.current += 1;
     setMaintenanceHistory([]);
     setCoverageHistory([]);
@@ -306,8 +317,8 @@ export function useDetailPanelState({
     return undefined;
   };
 
-  const linkQuickMaintenance = async (quickLinkId) => {
-    const { error } = await linkMaintenanceToParent(license.id, Number(quickLinkId));
+  const linkQuickMaintenance = async (parentId, quickLinkId) => {
+    const { error } = await linkMaintenanceToParent(parentId, Number(quickLinkId));
     if (!error) await queryClient.invalidateQueries({ queryKey: queryKeys.licenses });
     return error ?? null;
   };
@@ -325,7 +336,7 @@ export function useDetailPanelState({
       }
       onUpdate(license.id, normalizeLicense(data));
       if (quickLinkId) {
-        const linkError = await linkQuickMaintenance(quickLinkId);
+        const linkError = await linkQuickMaintenance(license.id, quickLinkId);
         if (linkError) {
           resolve({ error: `Coverage saved, but the maintenance record could not be linked: ${linkError}` });
           return;
@@ -339,13 +350,52 @@ export function useDetailPanelState({
   // Full edit
   const handleFullEditSave = () => confirmQuickLinkThen(quickLinkMaintenanceId, saveFullEdit);
 
+  const editDirty = editingLicense
+    && (quickLinkMaintenanceId !== "" || JSON.stringify(editFields) !== editBaseline);
+  const editDirtyRef = useRef(editDirty);
+  editDirtyRef.current = editDirty;
+
+  const closeFullEdit = useCallback(() => {
+    editDirtyRef.current = false;
+    setEditingForId(null);
+    setPendingLeave(null);
+  }, []);
+
+  // Leaving the edit (another license, closing the panel, another page, Back):
+  // with unsaved changes, hold `proceed` and ask; returns true when asking.
+  const interceptLeaveEdit = useCallback((proceed) => {
+    if (!editDirtyRef.current) return false;
+    setPendingLeave({ proceed });
+    return true;
+  }, []);
+
+  useEffect(() => {
+    if (!onRegisterLeaveGuard) return undefined;
+    onRegisterLeaveGuard(interceptLeaveEdit);
+    return () => onRegisterLeaveGuard(null);
+  }, [onRegisterLeaveGuard, interceptLeaveEdit]);
+
+  const cancelFullEdit = () => {
+    if (!interceptLeaveEdit(null)) closeFullEdit();
+  };
+
+  const confirmDiscardEdit = () => {
+    const proceed = pendingLeave?.proceed;
+    closeFullEdit();
+    proceed?.();
+  };
+
+  const keepEditing = () => setPendingLeave(null);
+
   const saveFullEdit = async () => {
+    const targetId = editingForId;
+    if (targetId == null || targetId !== license.id) return;
     setSavingLicense(true);
     setEditError(null);
     // parentLicenseId only travels when switching a license into Maintenance.
     const { parentLicenseId, ...fields } = editFields;
     const switchingToMaintenance = fields.licenseType === "maintenance" && license.licenseType !== "maintenance";
-    const ok = await onUpdate(license.id, {
+    const ok = await onUpdate(targetId, {
       ...fields,
       ...(switchingToMaintenance ? { parentLicenseId: Number(parentLicenseId) } : {}),
       ...typeOptInPayload(fields),
@@ -359,20 +409,22 @@ export function useDetailPanelState({
       setEditError("Save failed. Review the message above and try again.");
       return;
     }
-    const linkError = quickLinkMaintenanceId ? await linkQuickMaintenance(quickLinkMaintenanceId) : null;
+    const linkError = quickLinkMaintenanceId ? await linkQuickMaintenance(targetId, quickLinkMaintenanceId) : null;
     setSavingLicense(false);
     if (linkError) {
       setEditError(`Saved, but the maintenance record could not be linked: ${linkError}`);
       setQuickLinkMaintenanceId("");
+      // The fields themselves are stored; only the link is still open.
+      setEditBaseline(JSON.stringify(editFields));
       return;
     }
     await refreshCustomFields();
-    setEditingLicense(false);
+    closeFullEdit();
   };
 
   const handleStartFullEdit = () => {
     setQuickLinkMaintenanceId("");
-    setEditFields({
+    const fields = {
       publisherName: license.publisherName || "",
       softwareDescription: license.softwareDescription || "",
       startDate: license.startDate || "",
@@ -403,8 +455,11 @@ export function useDetailPanelState({
       maintenanceCoverage: license.maintenanceCoverage || "unknown",
       notes: license.notes || "",
       customFieldValues: customFieldValueMap(customFieldValues),
-    });
-    setEditingLicense(true);
+    };
+    setEditFields(fields);
+    setEditBaseline(JSON.stringify(fields));
+    setPendingLeave(null);
+    setEditingForId(license.id);
   };
 
   // Custom field save factory
@@ -447,7 +502,8 @@ export function useDetailPanelState({
     toast, setToast,
 
     // Full edit
-    editingLicense, setEditingLicense,
+    editingLicense, cancelFullEdit,
+    discardPending: pendingLeave !== null, confirmDiscardEdit, keepEditing,
     editFields, setEditFields,
     quickLinkMaintenanceId, setQuickLinkMaintenanceId,
     savingLicense,

@@ -58,6 +58,9 @@ export default function LicensesPage({
   // Reports portfolio-wide stats to App for the sidebar Portfolio Overview widget
   onStatsChange,
   onPortfolioStateChange,
+  // Unsaved License Details edit: see interceptLeave in useAppNavigation
+  interceptLeave,
+  onRegisterLeaveGuard,
 }) {
   const displayCurrency = userSettings.displayCurrency ?? DEFAULT_DISPLAY_CURRENCY;
   const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
@@ -288,12 +291,17 @@ export default function LicensesPage({
   };
 
   const handleToggleInlineEdit = useCallback(() => {
-    setInlineEditEnabled((enabled) => {
-      const next = !enabled;
-      if (next) setSelectedId(null);
-      return next;
-    });
-  }, [setSelectedId]);
+    if (inlineEditEnabled) {
+      setInlineEditEnabled(false);
+      return;
+    }
+    // Inline editing closes the detail panel; an unsaved edit there asks first.
+    const enable = () => {
+      setSelectedId(null);
+      setInlineEditEnabled(true);
+    };
+    if (!interceptLeave?.(enable)) enable();
+  }, [inlineEditEnabled, interceptLeave, setSelectedId]);
 
   // Derived column order
   // Custom field columns - dynamic, derived from admin-defined definitions
@@ -503,6 +511,7 @@ export default function LicensesPage({
               onUnlinkExistingSuccessor={handleUnlinkExistingSuccessor}
               onNavigate={(id) => setSelectedId(id)}
               onPreviewDocument={openDocumentPreview}
+              onRegisterLeaveGuard={onRegisterLeaveGuard}
             />
           )}
         </div>

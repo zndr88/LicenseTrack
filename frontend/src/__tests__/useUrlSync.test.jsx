@@ -11,12 +11,12 @@ vi.mock("../components/pages/licenses/useLicensesPageData.js", () => ({
 
 let api;
 
-function Harness({ guard = () => true, initialPage = "licenses" }) {
+function Harness({ guard = () => true, initialPage = "licenses", interceptLeave }) {
   const [page, setPage] = useState(initialPage);
   const [selectedId, setSelectedId] = useState(null);
   const navigateToPage = React.useCallback((next) => { if (guard(next)) setPage(next); }, [guard]);
   api = { page, selectedId, setPage, setSelectedId };
-  useUrlSync({ enabled: true, page, navigateToPage, selectedId, selectLicense: setSelectedId });
+  useUrlSync({ enabled: true, page, navigateToPage, selectedId, selectLicense: setSelectedId, interceptLeave });
   return null;
 }
 
@@ -93,6 +93,23 @@ describe("useUrlSync", () => {
 
     expect(api.page).toBe("reports");
     expect(window.location.pathname).toBe("/reports");
+  });
+
+  it("asks before Back leaves an unsaved license edit, and goes there after discard", async () => {
+    let proceed = null;
+    const interceptLeave = (next) => { proceed = next; return true; };
+    renderHarness({ interceptLeave }, [{ id: 7, licenseRef: "LT-7" }]);
+    act(() => api.setSelectedId(12));
+
+    act(() => goBackTo("/licenses/7"));
+
+    expect(api.selectedId).toBe(12);
+    expect(window.location.pathname).toBe("/licenses/12");
+
+    act(() => proceed());
+
+    await waitFor(() => expect(api.selectedId).toBe(7));
+    expect(window.location.pathname).toBe("/licenses/7");
   });
 
   it("returns to the requested page after an SSO round trip", async () => {
