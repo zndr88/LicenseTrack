@@ -23,6 +23,7 @@ import SecondaryContactsModal from "./SecondaryContactsModal.jsx";
 import ExistingSuccessorModal from "./ExistingSuccessorModal.jsx";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { supportsMaintenanceCoverage } from "../../utils/maintenanceCoverage.js";
 
 function DetailPanelHeader({ canEdit, editingLicense, onStartEdit, onClose }) {
@@ -52,7 +53,7 @@ function DetailToast({ toast, onClose }) {
   );
 }
 
-export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onPoTotalOverride, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onUnlinkExistingSuccessor, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate, onPreviewDocument }) {
+export default function DetailPanel({ license, userSettings, globalSettings, user, allLicenses, sourcingItems, pendingOrders, contracts, onClose, onUpdate, onPoTotalOverride, onDelete, onCreateRenewal, onCreateRenewalBundle, onCancelRenewal, onUnlinkExistingSuccessor, onNavigateToSourcing, onNavigateToPendingOrder, onNavigateToContract, onCreateContract, onNavigate, onPreviewDocument, onRegisterLeaveGuard }) {
   const {
     confirmAction, setConfirmAction,
     showMaintenanceModal, setShowMaintenanceModal,
@@ -61,7 +62,8 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     invoiceNumbersEdit, openInvoiceNumbersEdit, closeInvoiceNumbersEdit,
     secondaryContactsEdit, openSecondaryContactsEdit, closeSecondaryContactsEdit,
     toast, setToast,
-    editingLicense, setEditingLicense,
+    editingLicense, cancelFullEdit,
+    discardPending, confirmDiscardEdit, keepEditing,
     editFields, setEditFields,
     quickLinkMaintenanceId, setQuickLinkMaintenanceId,
     savingLicense, noticeActionBusy, editError,
@@ -82,7 +84,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
     cfBySection,
     makeCustomFieldSaveFn,
     comp, exp, perms, vis,
-  } = useDetailPanelState({ license, onUpdate, onClose, userSettings, globalSettings, user, onPreviewDocument });
+  } = useDetailPanelState({ license, onUpdate, onClose, userSettings, globalSettings, user, onPreviewDocument, onRegisterLeaveGuard });
   const [showLegacyLinkModal, setShowLegacyLinkModal] = useState(false);
   const [showExistingSuccessorModal, setShowExistingSuccessorModal] = useState(false);
   // Transient: hidden only for the license it was dismissed on, and never persisted,
@@ -127,7 +129,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
             customFieldDefs={customFieldDefs}
             customFieldsLoading={customFieldsLoading}
             onSave={() => handleFullEditSave()}
-            onCancel={() => setEditingLicense(false)}
+            onCancel={cancelFullEdit}
           />
         ) : (
           <>
@@ -399,6 +401,10 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
       </div>{/* end dp-sections */}
 
       {/* Confirm dialog rendered inside panel */}
+      {discardPending && (
+        <DiscardChangesDialog onDiscard={confirmDiscardEdit} onKeep={keepEditing} />
+      )}
+
       {confirmAction && (
         <ConfirmDialog
           title={confirmAction.title}

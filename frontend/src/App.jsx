@@ -126,6 +126,8 @@ export default function App() {
     setPage,
     handleSetPage,
     handleRegisterNavGuard,
+    interceptLeave,
+    handleRegisterLeaveGuard,
     confirmData,
     setConfirmData,
     selectedId,
@@ -151,6 +153,7 @@ export default function App() {
     navigateToPage: handleSetPage,
     selectedId,
     selectLicense: handleSetSelectedId,
+    interceptLeave,
   });
 
   const handleSidebarStatsChange = useCallback((s) => {
@@ -220,7 +223,10 @@ export default function App() {
           notificationsLoading={notificationQuery.isPending}
           onLogout={handleLogout}
           perms={perms}
-          onAddLicense={() => setConfirmData(createManualEntryData())}
+          onAddLicense={() => {
+            const open = () => setConfirmData(createManualEntryData());
+            if (!interceptLeave(open)) open();
+          }}
         />
         {DEMO_MODE && (
           <div className="demo-banner" role="status">
@@ -265,6 +271,8 @@ export default function App() {
             handleConfirm={handleConfirm}
             handleCreateContract={handleCreateContract}
             handleRegisterNavGuard={handleRegisterNavGuard}
+            interceptLeave={interceptLeave}
+            handleRegisterLeaveGuard={handleRegisterLeaveGuard}
             handleSettingsDiscard={handleSettingsDiscard}
             handleSectionSaved={handleSectionSaved}
             handleSidebarStatsChange={handleSidebarStatsChange}

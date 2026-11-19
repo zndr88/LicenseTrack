@@ -59,11 +59,17 @@ export default function AppRouter({
   handleConfirm,
   handleCreateContract,
   handleRegisterNavGuard,
+  interceptLeave,
+  handleRegisterLeaveGuard,
   handleSettingsDiscard,
   handleSectionSaved,
   handleSidebarStatsChange,
 }) {
   const queryClient = useQueryClient();
+  // Runs `proceed` now, or after the user discards an unsaved license edit.
+  const leaveLicenseEditThen = (proceed) => {
+    if (!interceptLeave?.(proceed)) proceed();
+  };
 
   return (
     <>
@@ -84,10 +90,12 @@ export default function AppRouter({
             onFullView={handleFullView}
             statsVisible={statsVisible}
             onSetStatsVisible={setStatsVisible}
-            onNavigateToSourcing={(id) => { setPage("sourcing"); setHighlightSourcingId(id); }}
-            onNavigateToPendingOrder={(id) => { setPage("pending-orders"); setHighlightPendingOrderId(id); }}
-            onNavigateToContract={(id) => { setPage("contracts"); setOpenContractId(id); }}
+            onNavigateToSourcing={(id) => leaveLicenseEditThen(() => { setPage("sourcing"); setHighlightSourcingId(id); })}
+            onNavigateToPendingOrder={(id) => leaveLicenseEditThen(() => { setPage("pending-orders"); setHighlightPendingOrderId(id); })}
+            onNavigateToContract={(id) => leaveLicenseEditThen(() => { setPage("contracts"); setOpenContractId(id); })}
             onCreateContract={handleCreateContract}
+            interceptLeave={interceptLeave}
+            onRegisterLeaveGuard={handleRegisterLeaveGuard}
             onSourcingCreated={() => queryClient.invalidateQueries({ queryKey: queryKeys.sourcing })}
             onStatsChange={handleSidebarStatsChange}
             onPortfolioStateChange={() => invalidatePortfolioState(queryClient)}
