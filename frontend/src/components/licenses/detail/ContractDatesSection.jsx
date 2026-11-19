@@ -1,6 +1,7 @@
 // frontend/src/components/licenses/detail/ContractDatesSection.jsx
 import { formatDate, formatDateTime } from "../../../utils/formatting.js";
 import Icon from "../../ui/Icon.jsx";
+import CopyButton from "../../ui/CopyButton.jsx";
 import DetailSectionHeader from "./DetailSectionHeader.jsx";
 import CustomFieldRows from "./CustomFieldRows.jsx";
 
@@ -20,6 +21,7 @@ export default function ContractDatesSection({
   cfBySection,
   customFieldValues,
   vis,
+  setToast,
   customFieldsLoading,
   makeCustomFieldSaveFn,
   closeFieldEdit,
@@ -90,6 +92,7 @@ export default function ContractDatesSection({
               </span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.poNumber || "\u2014"}</div>
+                <CopyButton value={license.poNumber} label="PO number" onNotify={setToast} />
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit PO number"
                     onClick={() => openFieldEdit({ fieldKey: "poNumber", fieldLabel: "PO #", currentValue: license.poNumber || "", inputType: "text" })}
@@ -181,6 +184,12 @@ export default function ContractDatesSection({
                     {invoiceCount > 1 && <span className="invoice-count-badge">+{invoiceCount - 1}</span>}
                   </div>
                 )}
+                <CopyButton
+                  value={invoiceNumbers.join(", ")}
+                  label="invoice numbers"
+                  copiedMessage={invoiceCount > 1 ? `${invoiceCount} invoice numbers copied` : "Invoice number copied"}
+                  onNotify={setToast}
+                />
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit invoice numbers"
                     onClick={openInvoiceNumbersEdit}
@@ -203,6 +212,7 @@ export default function ContractDatesSection({
               <span className="dp-field-label">Contract #</span>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <div className="val mono">{license.contractNumber || "\u2014"}</div>
+                <CopyButton value={license.contractNumber} label="contract number" onNotify={setToast} />
                 {perms.canEdit && (
                   <button type="button" className="dp-field-edit-icon" aria-label="Edit contract number"
                     onClick={() => openFieldEdit({ fieldKey: "contractNumber", fieldLabel: "Contract #", currentValue: license.contractNumber || "", inputType: "text" })}

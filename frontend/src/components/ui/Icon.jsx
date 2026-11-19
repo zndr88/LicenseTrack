@@ -5,6 +5,7 @@ const Icon = ({ name, size = 18, color = "currentColor" }) => {
     upload: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
     search: <><circle cx="11" cy="11" r="8" strokeWidth="2" /><path d="m21 21-4.3-4.3" strokeWidth="2" strokeLinecap="round" /></>,
     filter: <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
+    copy: <><rect width="13" height="13" x="9" y="9" rx="2" strokeWidth="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" strokeWidth="2" strokeLinecap="round" /></>,
     check: <path d="M20 6 9 17l-5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />,
     alert: <><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" strokeWidth="2" /><path d="M12 9v4M12 17h.01" strokeWidth="2" strokeLinecap="round" /></>,
     mail: <><rect width="20" height="16" x="2" y="4" rx="2" strokeWidth="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" strokeWidth="2" /></>,
