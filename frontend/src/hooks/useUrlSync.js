@@ -41,7 +41,9 @@ export function rememberPathForLogin(basePath = APP_BASE_PATH) {
  * Keep the browser URL in step with the app's page and selected license, and
  * restore both from the URL on load and on Back/Forward. URL-driven page
  * changes use the same guarded navigate function as the sidebar, so
- * unsaved-change prompts also fire on Back.
+ * unsaved-change prompts also fire on Back. `interceptLeave(proceed)` returns
+ * true when an unsaved License Details edit is asking the user first; it runs
+ * `proceed` only if they discard.
  */
 export function useUrlSync({
   enabled,
@@ -49,6 +51,7 @@ export function useUrlSync({
   navigateToPage,
   selectedId,
   selectLicense,
+  interceptLeave,
   basePath = APP_BASE_PATH,
 }) {
   const [pendingLicenseKey, setPendingLicenseKey] = useState(null);
@@ -146,23 +149,33 @@ export function useUrlSync({
       const alreadyShown = target.page === pageRef.current
         && !target.licenseKey
         && (targetLicenseId === undefined || targetLicenseId === selectedIdRef.current);
-      expectedRef.current = alreadyShown
-        ? null
-        : { page: target.page, licenseId: targetLicenseId, awaitingLicense: Boolean(target.licenseKey) };
-      if (target.page !== pageRef.current) {
-        navigateToPage(target.page);
-        // A dirty-form guard may keep the current page; put the URL back so it
-        // matches the screen. Leaving afterwards pushes the target path again.
-        window.setTimeout(() => {
-          if (pageRef.current === target.page) return;
-          expectedRef.current = null;
-          window.history.pushState(window.history.state, "", currentPath());
-        }, 0);
+      const applyTarget = () => {
+        expectedRef.current = alreadyShown
+          ? null
+          : { page: target.page, licenseId: targetLicenseId, awaitingLicense: Boolean(target.licenseKey) };
+        if (target.page !== pageRef.current) {
+          navigateToPage(target.page);
+          // A dirty-form guard may keep the current page; put the URL back so it
+          // matches the screen. Leaving afterwards pushes the target path again.
+          window.setTimeout(() => {
+            if (pageRef.current === target.page) return;
+            expectedRef.current = null;
+            window.history.pushState(window.history.state, "", currentPath());
+          }, 0);
+        }
+        if (target.licenseKey) setPendingLicenseKey(target.licenseKey);
+        else if (target.page === "licenses" && selectedIdRef.current != null) selectLicense(null);
+      };
+      // An unsaved License Details edit asks first: the URL goes back to the
+      // screen shown, and the target is applied only if the user discards.
+      if (!alreadyShown && interceptLeave?.(applyTarget)) {
+        expectedRef.current = null;
+        window.history.pushState(window.history.state, "", currentPath());
+        return;
       }
-      if (target.licenseKey) setPendingLicenseKey(target.licenseKey);
-      else if (target.page === "licenses" && selectedIdRef.current != null) selectLicense(null);
+      applyTarget();
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [enabled, basePath, navigateToPage, selectLicense]);
+  }, [enabled, basePath, navigateToPage, selectLicense, interceptLeave]);
 }

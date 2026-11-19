@@ -3,6 +3,7 @@ import { render as rtlRender, screen, fireEvent, waitFor, within, act } from '@t
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import DetailPanel from '../components/licenses/DetailPanel.jsx'
+import { useAppNavigation } from '../hooks/useAppNavigation.js'
 import { getCoverageHistory, getLicense, getMaintenanceForParent, linkMaintenanceToParent, updateIncludedSupport, updateLicense } from '../api/licenses.js'
 
 vi.mock('../api/documents.js', () => ({
@@ -2198,5 +2199,150 @@ describe('DetailPanel full edit Line Total', () => {
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalled())
     expect(onUpdate.mock.calls[0][1]).not.toHaveProperty('totalPoPrice')
+  })
+})
+
+describe('DetailPanel leaving the full edit form', () => {
+  const licenseA = { ...baseLicense, id: 1, softwareDescription: 'Widget Pro', notes: 'Notes of A' }
+  const licenseB = { ...baseLicense, id: 2, licenseRef: 'LT-2026-00002', publisherName: 'Other Corp', softwareDescription: 'Gadget Max', notes: 'Notes of B' }
+  const byId = { 1: licenseA, 2: licenseB }
+  let navigation
+
+  // The panel under the app's real selection and page state, as on the Licenses page.
+  function Harness({ onUpdate }) {
+    navigation = useAppNavigation({ currentUser: { id: 2, role: 'admin' }, setUserSettings: () => {} })
+    const selected = byId[navigation.selectedId]
+    return (
+      <>
+        <button onClick={() => navigation.handleSetSelectedId(2)}>Row B</button>
+        <button onClick={() => navigation.handleSetPage('reports')}>Reports</button>
+        <div data-testid="page">{navigation.page}</div>
+        {selected && (
+          <DetailPanel
+            {...baseProps}
+            user={{ id: 2, role: 'admin' }}
+            license={selected}
+            allLicenses={[licenseA, licenseB]}
+            onUpdate={onUpdate}
+            onClose={() => navigation.handleSetSelectedId(null)}
+            onNavigate={navigation.handleSetSelectedId}
+            onRegisterLeaveGuard={navigation.handleRegisterLeaveGuard}
+          />
+        )}
+      </>
+    )
+  }
+
+  async function openEditOnA({ dirty }) {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    render(<Harness onUpdate={onUpdate} />)
+    act(() => navigation.handleSetSelectedId(1))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    if (dirty) fireEvent.change(screen.getByLabelText('Notes / Comments'), { target: { value: 'Typed on A' } })
+    return { user, onUpdate }
+  }
+
+  const discardDialog = () => screen.queryByRole('dialog', { name: 'Discard unsaved changes?' })
+
+  it('asks before switching to another license and never saves the edits onto it', async () => {
+    const { user, onUpdate } = await openEditOnA({ dirty: true })
+
+    await user.click(screen.getByRole('button', { name: 'Row B' }))
+
+    expect(discardDialog()).toBeInTheDocument()
+    expect(navigation.selectedId).toBe(1)
+
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+
+    await waitFor(() => expect(navigation.selectedId).toBe(2))
+    expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Gadget Max')).toBeInTheDocument()
+    expect(onUpdate).not.toHaveBeenCalled()
+  })
+
+  it('keeps the edit open with its values when the user chooses to keep editing', async () => {
+    const { user, onUpdate } = await openEditOnA({ dirty: true })
+
+    await user.click(screen.getByRole('button', { name: 'Row B' }))
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }))
+
+    expect(navigation.selectedId).toBe(1)
+    expect(screen.getByLabelText('Notes / Comments')).toHaveValue('Typed on A')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({ notes: 'Typed on A' })))
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('switches without asking when nothing was changed, and closes the form', async () => {
+    const { user, onUpdate } = await openEditOnA({ dirty: false })
+
+    await user.click(screen.getByRole('button', { name: 'Row B' }))
+
+    expect(discardDialog()).not.toBeInTheDocument()
+    expect(navigation.selectedId).toBe(2)
+    expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
+    expect(onUpdate).not.toHaveBeenCalled()
+  })
+
+  it('asks before Cancel discards changes', async () => {
+    const { user } = await openEditOnA({ dirty: true })
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(discardDialog()).toBeInTheDocument()
+    expect(screen.getByLabelText('Notes / Comments')).toHaveValue('Typed on A')
+
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
+    expect(navigation.selectedId).toBe(1)
+  })
+
+  it('cancels a clean edit without asking', async () => {
+    const { user } = await openEditOnA({ dirty: false })
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(discardDialog()).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
+  })
+
+  it('asks before the close button discards changes', async () => {
+    const { user } = await openEditOnA({ dirty: true })
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(discardDialog()).toBeInTheDocument()
+    expect(navigation.selectedId).toBe(1)
+
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+    await waitFor(() => expect(navigation.selectedId).toBeNull())
+  })
+
+  it('asks before leaving the page with unsaved changes', async () => {
+    const { user } = await openEditOnA({ dirty: true })
+
+    await user.click(screen.getByRole('button', { name: 'Reports' }))
+    expect(discardDialog()).toBeInTheDocument()
+    expect(screen.getByTestId('page')).toHaveTextContent('licenses')
+
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+    await waitFor(() => expect(screen.getByTestId('page')).toHaveTextContent('reports'))
+  })
+
+  it('does not save onto another license when the selection changes without the guard', async () => {
+    const user = userEvent.setup()
+    const onUpdate = vi.fn().mockResolvedValue(true)
+    const props = { ...baseProps, user: { id: 2, role: 'admin' }, allLicenses: [licenseA, licenseB], onUpdate }
+    const view = render(<DetailPanel {...props} license={licenseA} />)
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    fireEvent.change(screen.getByLabelText('Notes / Comments'), { target: { value: 'Typed on A' } })
+
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <DetailPanel {...props} license={licenseB} />
+      </QueryClientProvider>
+    )
+
+    expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
+    expect(onUpdate).not.toHaveBeenCalled()
   })
 })
