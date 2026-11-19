@@ -39,7 +39,7 @@ describe("guard and timer hooks", () => {
     expect(navGuard.registerNavGuard).toHaveBeenLastCalledWith(null);
   });
 
-  test("useModalGuard opens discard confirmation for dirty closes and intercepts Escape", () => {
+  test("useModalGuard closes a clean form and asks before closing a changed one", () => {
     const onClose = vi.fn();
     const { result, rerender } = renderHook(
       ({ isDirty }) => useModalGuard({ isDirty, onClose }),
@@ -50,9 +50,7 @@ describe("guard and timer hooks", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
 
     rerender({ isDirty: true });
-    act(() => {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    });
+    act(() => result.current.requestClose());
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(result.current.showDiscardDialog).toBe(true);

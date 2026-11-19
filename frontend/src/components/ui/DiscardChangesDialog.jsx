@@ -9,6 +9,7 @@ export default function DiscardChangesDialog({ onDiscard, onKeep }) {
   return (
     <ModalShell
       ariaLabel="Discard unsaved changes?"
+      onClose={onKeep}
       closeOnOverlayClick={false}
       showCloseButton={false}
       overlayClassName="overlay discard-dialog-overlay"
