@@ -1,8 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap.js";
 import Icon from "./Icon.jsx";
 import { ModalSectionExpansionContext } from "./ModalSectionExpansionContext.js";
 
+// Open dialogs in the order they were opened; the last one is on top.
+const openDialogs = [];
+
+/**
+ * Escape closes the dialog: it calls `onEscape` when given, otherwise
+ * `onClose`. Only the topmost open dialog reacts. Pass `closeOnEscape={false}`
+ * to opt out; a disabled close button also switches it off.
+ */
 export default function ModalShell({
   title,
   titleId,
@@ -15,6 +23,7 @@ export default function ModalShell({
   showCloseButton = true,
   closeButtonAriaLabel = "Close",
   closeButtonDisabled = false,
+  closeOnEscape = true,
   closeOnOverlayClick = true,
   overlayClassName = "overlay",
   overlayStyle,
@@ -34,15 +43,28 @@ export default function ModalShell({
     event.stopPropagation();
   };
 
-  const handleKeyDown = (event) => {
-    if (event.key === "Escape" && onEscape) {
+  const escapeRef = useRef(null);
+  escapeRef.current = closeOnEscape && !closeButtonDisabled ? (onEscape ?? onClose) : null;
+
+  // Listens on the document so Escape also works when focus has left the
+  // dialog. A field or menu inside that handles Escape itself goes first.
+  useEffect(() => {
+    const entry = {};
+    openDialogs.push(entry);
+    const handleEscape = (event) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (openDialogs[openDialogs.length - 1] !== entry) return;
+      if (event.target?.closest?.('[role="combobox"][aria-expanded="true"]')) return;
       event.preventDefault();
       event.stopPropagation();
-      onEscape(event);
-      return;
-    }
-    onKeyDown(event);
-  };
+      escapeRef.current?.(event);
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      openDialogs.splice(openDialogs.indexOf(entry), 1);
+    };
+  }, []);
 
   const setAllSections = (open) => setSectionCommand((current) => ({ sequence: current.sequence + 1, open }));
 
@@ -51,7 +73,7 @@ export default function ModalShell({
       <div
         className={modalClassName}
         ref={modalRef}
-        onKeyDown={handleKeyDown}
+        onKeyDown={onKeyDown}
         onClick={(event) => event.stopPropagation()}
         style={modalStyle}
         role="dialog"

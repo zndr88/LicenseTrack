@@ -47,6 +47,11 @@ contracts will be called out under a **Breaking** heading in future releases.
   and error styles everywhere. Errors and warnings stay until dismissed instead
   of disappearing after a few seconds, success messages clear after 5 seconds,
   and messages are announced to screen readers.
+- Escape did nothing in confirmation dialogs, the "Discard unsaved changes?"
+  dialog, about ten smaller dialogs and the License Details panel. Escape now
+  closes the topmost dialog, or the License Details panel when no dialog is
+  open, and still asks before discarding unsaved changes. Confirmation dialogs
+  now start with the focus on Cancel.
 - Several requests writing at the same time no longer fail with a server
   error. A write now waits up to 15 seconds for the database; if it is still
   busy, the API answers 503 with a `Retry-After` header so integrations can
