@@ -478,9 +478,110 @@ def test_recovery_archive_rejects_unsafe_storage_entries(tmp_path):
         )
 
 
+def test_create_backup_failure_leaves_no_archive_behind(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    _make_db(db_path)
+    backup_dir = tmp_path / "backups"
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: db_path)
+
+    def disk_full(self, *args, **kwargs):
+        self.fp.write(b"partial archive")
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(zipfile.ZipFile, "writestr", disk_full)
+
+    with pytest.raises(OSError):
+        create_backup(str(backup_dir))
+
+    assert list(backup_dir.iterdir()) == []
+
+
+def test_create_backup_integrity_failure_leaves_no_archive_behind(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    _make_db(db_path)
+    backup_dir = tmp_path / "backups"
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: db_path)
+    monkeypatch.setattr(zipfile.ZipFile, "testzip", lambda self: "test.db")
+
+    with pytest.raises(RuntimeError, match="integrity check failed"):
+        create_backup(str(backup_dir))
+
+    assert list(backup_dir.iterdir()) == []
+
+
+def test_create_backup_never_exposes_an_unverified_archive(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    _make_db(db_path)
+    backup_dir = tmp_path / "backups"
+    monkeypatch.setattr("app.services.backup_service.get_db_path", lambda: db_path)
+    seen_during_verification = []
+    real_testzip = zipfile.ZipFile.testzip
+
+    def spy(self):
+        seen_during_verification.extend(backup_dir.glob("license_lifecycle_backup_*.zip"))
+        return real_testzip(self)
+
+    monkeypatch.setattr(zipfile.ZipFile, "testzip", spy)
+
+    result = create_backup(str(backup_dir))
+
+    assert seen_during_verification == []
+    assert list(backup_dir.iterdir()) == [result]
+
+
 # ---------------------------------------------------------------------------
 # 4c — prune_backups keeps only the N most recent files
 # ---------------------------------------------------------------------------
+
+def _write_backup_archive(path: Path, mtime: int) -> Path:
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("licenses.db", b"database")
+    os.utime(str(path), (mtime, mtime))
+    return path
+
+
+def _write_incomplete_archive(path: Path, mtime: int) -> Path:
+    path.write_bytes(b"PK cut off before the end")
+    os.utime(str(path), (mtime, mtime))
+    return path
+
+
+def test_prune_backups_does_not_count_incomplete_archives(tmp_path):
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    valid = [
+        _write_backup_archive(backup_dir / f"license_lifecycle_backup_2024010{i + 1}_000000.zip", i * 100)
+        for i in range(3)
+    ]
+    broken = [
+        _write_incomplete_archive(backup_dir / f"license_lifecycle_backup_2024020{i + 1}_000000.zip", 1000 + i * 100)
+        for i in range(2)
+    ]
+
+    prune_backups(str(backup_dir), keep=2)
+
+    remaining = set(backup_dir.glob("license_lifecycle_backup_*.zip"))
+    # The two newest valid backups survive even though two newer files exist.
+    assert valid[1] in remaining and valid[2] in remaining
+    assert valid[0] not in remaining
+    # Files that cannot be read are reported, never deleted.
+    assert set(broken) <= remaining
+
+
+def test_prune_backups_removes_stale_unfinished_files(tmp_path):
+    backup_dir = tmp_path / "backups"
+    backup_dir.mkdir()
+    stale = backup_dir / ".license_lifecycle_backup_20240101_000000.zip.partial"
+    stale.write_bytes(b"abandoned")
+    os.utime(str(stale), (100, 100))
+    in_progress = backup_dir / ".license_lifecycle_backup_20990101_000000.zip.partial"
+    in_progress.write_bytes(b"being written")
+
+    prune_backups(str(backup_dir), keep=2)
+
+    assert not stale.exists()
+    assert in_progress.exists()
+
 
 def test_prune_backups_keeps_n_most_recent(tmp_path):
     backup_dir = tmp_path / "backups"
@@ -488,9 +589,8 @@ def test_prune_backups_keeps_n_most_recent(tmp_path):
 
     files = []
     for i in range(5):
-        f = backup_dir / f"license_lifecycle_backup_2024010{i + 1}_000000.zip"
-        f.touch()
-        os.utime(str(f), (i * 100, i * 100))   # i=0 → oldest, i=4 → newest
+        # i=0 → oldest, i=4 → newest
+        f = _write_backup_archive(backup_dir / f"license_lifecycle_backup_2024010{i + 1}_000000.zip", i * 100)
         files.append(f)
 
     prune_backups(str(backup_dir), keep=3)
