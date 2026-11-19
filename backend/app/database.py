@@ -4,7 +4,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
-from app.services.procurement_identity import normalize_po_number
 
 # How long a connection waits for another connection's write before SQLite
 # reports "database is locked" (answered with HTTP 503 by app.main). The
@@ -20,9 +19,9 @@ def _is_memory_database(url: URL) -> bool:
 def configure_sqlite_connections(sync_engine) -> None:
     """Apply LicenseTrack's settings to every SQLite connection of *sync_engine*.
 
-    Foreign-key enforcement, the PO-normalization SQL function and the busy
-    timeout apply to every connection. File databases also use WAL, so reads
-    do not block writes. WAL keeps two companion files next to the database
+    Foreign-key enforcement and the busy timeout apply to every connection.
+    File databases also use WAL, so reads do not block writes. WAL keeps two
+    companion files next to the database
     (``-wal`` and ``-shm``) and needs a local disk, not a network share.
     """
     if sync_engine.dialect.name != "sqlite":
@@ -31,7 +30,6 @@ def configure_sqlite_connections(sync_engine) -> None:
 
     @event.listens_for(sync_engine, "connect")
     def _configure(dbapi_connection, connection_record):
-        dbapi_connection.create_function("licensetrack_normalize_po", 1, normalize_po_number, deterministic=True)
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         # Read at connect time so tests can shorten it.

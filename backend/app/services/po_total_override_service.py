@@ -61,9 +61,8 @@ def _identity_filter(
     if identity_value.startswith("procurement-bundle:"):
         return (License.procurement_bundle_id == procurement_bundle_id, currency_filter)
     if identity_value.startswith("po:"):
-        normalized_po_number = func.licensetrack_normalize_po(License.po_number)
         return (
-            normalized_po_number == identity_value[3:],
+            License.po_key == identity_value[3:],
             License.pending_order_id.is_(None),
             License.procurement_bundle_id.is_(None),
             currency_filter,

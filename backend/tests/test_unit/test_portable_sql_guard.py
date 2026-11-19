@@ -45,3 +45,12 @@ def test_po_numbers_are_not_written_by_bulk_statements():
         str(path.relative_to(APP_DIR)) for path in APP_DIR.rglob("*.py") if pattern.search(path.read_text(encoding="utf-8"))
     ]
     assert offenders == [], f"Set po_number on the object, not in a bulk statement: {offenders}"
+
+
+def test_po_matching_does_not_use_a_database_function():
+    offenders = [
+        str(path.relative_to(APP_DIR))
+        for path in APP_DIR.rglob("*.py")
+        if "licensetrack_normalize_po" in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == [], f"Compare License.po_key / ProcurementDocument.shared_po_key instead: {offenders}"

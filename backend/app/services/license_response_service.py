@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -92,7 +92,7 @@ async def get_procurement_documents_by_scope(db: AsyncSession, licenses: list) -
         scope_condition = or_(scope_condition, and_(
             ProcurementDocument.target_sourcing_item_id.is_(None),
             ProcurementDocument.pending_order_id.is_(None),
-            func.licensetrack_normalize_po(ProcurementDocument.shared_po_number).in_(po_numbers),
+            ProcurementDocument.shared_po_key.in_(po_numbers),
         ))
     if source_item_ids:
         scope_condition = or_(scope_condition, ProcurementDocument.target_sourcing_item_id.in_(source_item_ids))
