@@ -83,7 +83,7 @@ export default function FieldEditModal({
       e.preventDefault();
       handleSave();
     }
-    // Escape is handled by useModalGuard's document listener
+    // Escape is handled by ModalShell, which calls requestClose
   };
 
   return (
