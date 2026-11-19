@@ -76,6 +76,11 @@ contracts will be called out under a **Breaking** heading in future releases.
   in the folder once it is complete and verified. Retention counts readable
   backups only; a file it cannot read is reported in the log and left in
   place.
+- Changing the License Type with the pencil in License Details could set
+  **Other** without a type description, which the edit form refuses. The
+  pencil no longer offers Other, its hint points to Edit, and the API rejects
+  the change with a clear message. An existing Other license can still be
+  changed to another type this way.
 
 ## [1.2.1] - 2026-10-29
 

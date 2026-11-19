@@ -186,6 +186,7 @@ export function decorateLicense(license) {
 // ---------------------------------------------------------------------------
 
 export const TYPE_DESCRIPTION_REQUIRED_DETAIL = "Add a type description for an Other license";
+export const TYPE_OTHER_NEEDS_EDIT_DETAIL = "To change a license into Other, use Edit and add a type description.";
 
 /** Keep isRenewable only on Service/Other, typeDescription only on Other, the supported license only on maintenance lines. */
 export function normaliseTypeOptInFields(data) {

@@ -56,6 +56,7 @@ from app.services.notice_reminder_rules import clear_notice_handled_if_date_chan
 from app.services.license_service import (
     INCLUDED_SUPPORT_PARENT_TYPES,
     TYPE_DESCRIPTION_REQUIRED_DETAIL,
+    TYPE_OTHER_NEEDS_EDIT_DETAIL,
     is_non_expiring_license_type,
     normalise_type_opt_in_fields,
     type_description_missing,
@@ -1095,6 +1096,10 @@ def apply_license_type_patch(license_obj: License, value: str | None) -> None:
         assert_active_maintenance_allows_type_change(license_obj.active_maintenance_id, new_type)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    # Same rule as the full edit form. An existing Other license without a
+    # description stays valid until its type is changed.
+    if new_type != license_obj.license_type and type_description_missing(new_type, license_obj.type_description):
+        raise HTTPException(status_code=422, detail=TYPE_OTHER_NEEDS_EDIT_DETAIL)
 
     previous_type = license_obj.license_type
     license_obj.license_type = new_type

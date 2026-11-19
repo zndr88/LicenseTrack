@@ -157,6 +157,8 @@ def type_description_missing(license_type, type_description: str | None) -> bool
 
 
 TYPE_DESCRIPTION_REQUIRED_DETAIL = "Add a type description for an Other license"
+# The single-field edit cannot set a type description, so it points to the full form.
+TYPE_OTHER_NEEDS_EDIT_DETAIL = "To change a license into Other, use Edit and add a type description."
 
 
 # Types whose support can be included with the purchase and expire on its own.
