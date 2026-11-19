@@ -15,6 +15,7 @@ import {
   assertCanInitiateRenewal, getRenewalActionDays, normalizeRetirementUpdate,
   setPlannedSuccessors, replacePlannedPredecessors, requireNoPlannedLinks,
   normaliseLicenseTypeFields, normaliseTypeOptInFields, validateTypeDescription, syncInvoiceNumbers,
+  TYPE_OTHER_NEEDS_EDIT_DETAIL,
   linkOrActivateMaintenance, recordIncludedSupportExit, applyIncludedSupportUpdate, startSupportRenewal,
   assertLineCurrencyFitsPendingOrder, assertPendingOrderOverrideCurrencies, countPoOverridesNotInAnnual,
   clearNoticeHandledIfDateChanged,
@@ -26,7 +27,7 @@ import { validateDemoMoney } from "./numberValidation.js";
 import { datetimeDaysAgo } from "./time.js";
 import { isPendingOrderOpen } from "../utils/pendingOrderState.js";
 import { hasSameProcurementIdentity } from "../utils/procurementIdentity.js";
-import { isNonExpiringLicenseType } from "../utils/licenseTypeRules.js";
+import { isNonExpiringLicenseType, typeDescriptionMissing } from "../utils/licenseTypeRules.js";
 import {
   filterLicenses, getBudgetForecast, getCostOverview, getLifecycleCounts,
   getSpendByPublisher, getPortfolioBreakdown, getRenewalCalendar, getVendorTable,
@@ -1240,6 +1241,10 @@ export const routes = [
         // Non-expiring types never carry an end date.
         license[field] = field === "endDate" && isNonExpiringLicenseType(license.licenseType) ? null : value || null;
       } else if (field === "licenseType") {
+        // Same rule as the full edit form (license_write_service apply_license_type_patch).
+        if (value !== license.licenseType && typeDescriptionMissing(value, license.typeDescription)) {
+          throw new Error(TYPE_OTHER_NEEDS_EDIT_DETAIL);
+        }
         license.licenseType = value;
         normaliseLicenseTypeFields(license);
       } else if (field === "maintenanceCoverage") {

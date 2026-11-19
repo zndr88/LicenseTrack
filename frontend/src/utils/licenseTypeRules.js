@@ -80,14 +80,19 @@ export function canFollowInTermChain(predecessor, successor) {
   return (predecessor?.licenseType === "maintenance") === (successor?.licenseType === "maintenance");
 }
 
-export const INLINE_LICENSE_TYPE_HINT = "To change a license into Maintenance, use Edit and choose the license it covers.";
+export const INLINE_LICENSE_TYPE_HINT = "To change a license into Maintenance or Other, use Edit: Maintenance needs the license it covers, Other needs a type description.";
+
+// Types that need a second value the single-field edit cannot take.
+const FULL_EDIT_ONLY_TYPES = ["maintenance", "other"];
 
 /**
  * License Type choices for the single-field (inline) edit. Changing to
- * Maintenance needs a parent license, so only the full edit form offers it.
+ * Maintenance needs a parent license and changing to Other needs a type
+ * description, so only the full edit form offers them. The current type
+ * always stays in the list.
  */
 export function inlineLicenseTypeOptions(currentType) {
-  return currentType === "maintenance"
-    ? LICENSE_TYPES
-    : LICENSE_TYPES.filter((option) => option.value !== "maintenance");
+  return LICENSE_TYPES.filter(
+    (option) => option.value === currentType || !FULL_EDIT_ONLY_TYPES.includes(option.value),
+  );
 }

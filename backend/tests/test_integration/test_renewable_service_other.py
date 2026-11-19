@@ -126,3 +126,38 @@ def test_renewability_and_recurring_helpers():
     assert is_recurring_license(lic("service", True))
     assert not is_recurring_license(lic("service", None))
     assert not is_recurring_license(lic("perpetual"))
+
+
+async def _patch_field(client, headers, license_id: int, field: str, value: str):
+    return await client.patch(
+        f"/api/licenses/{license_id}/field",
+        json={"field": field, "value": value},
+        headers=headers,
+    )
+
+
+async def test_single_field_edit_cannot_change_a_license_into_other_without_description(
+    test_app, auth_headers
+):
+    created = await _create(test_app, auth_headers, licenseType="subscription")
+
+    resp = await _patch_field(test_app, auth_headers, created["id"], "licenseType", "other")
+
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["detail"] == "To change a license into Other, use Edit and add a type description."
+    reloaded = await test_app.get(f"/api/licenses/{created['id']}", headers=auth_headers)
+    assert reloaded.json()["licenseType"] == "subscription"
+
+
+async def test_single_field_edit_still_changes_an_other_license_to_another_type(
+    test_app, auth_headers
+):
+    created = await _create(test_app, auth_headers, licenseType="other", typeDescription="Voucher")
+
+    same = await _patch_field(test_app, auth_headers, created["id"], "licenseType", "other")
+    changed = await _patch_field(test_app, auth_headers, created["id"], "licenseType", "service")
+
+    assert same.status_code == 200, same.text
+    assert same.json()["typeDescription"] == "Voucher"
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["licenseType"] == "service"
