@@ -55,11 +55,15 @@ def _seconds_until_hour(now: datetime, hour: int) -> float:
 async def _prune_audit_log(retention_days: int) -> None:
     """Delete AuditLog rows older than retention_days. Logs but never raises."""
     try:
-        # Strip tzinfo so the cutoff is a naive UTC datetime matching how
-        # SQLite stores timestamps (as plain strings without timezone offset).
-        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=retention_days)
+        # Timezone-aware UTC: SQLite drops the offset when it stores and
+        # compares, PostgreSQL compares in UTC. Same instant on both.
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
         async with AsyncSessionLocal() as db:
-            await db.execute(delete(AuditLog).where(AuditLog.timestamp < cutoff))
+            # Nothing here reads audit rows afterwards, so the session does not
+            # need to re-check its loaded objects against the cutoff.
+            await db.execute(
+                delete(AuditLog).where(AuditLog.timestamp < cutoff).execution_options(synchronize_session=False)
+            )
             await db.commit()
         log.info(f"Audit log pruned: entries older than {retention_days} days removed")
     except Exception as exc:

@@ -1,13 +1,14 @@
 import secrets
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, update, func, or_
-from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy import delete, insert, update, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import auth
 from app.models.human_session import HumanSession
 from app.models.user import User
+from app.services.db_portability import greatest
 
 
 def now_seconds() -> int:
@@ -92,18 +93,27 @@ async def get_active_session(db: AsyncSession, payload: dict, timeout_minutes: i
 
 async def revoke_session(db: AsyncSession, user_id: int, session_id: str, token_expiry: int) -> None:
     # Keep a tombstone through the last token expiry.
-    statement = insert(HumanSession).values(
-        id=session_id, user_id=user_id, security_version=0, issued_at=token_expiry, expires_at=0
-    )
-    await db.execute(
-        statement.on_conflict_do_update(
-            index_elements=[HumanSession.id],
-            set_={
-                "issued_at": func.max(HumanSession.issued_at, HumanSession.expires_at, token_expiry),
-                "expires_at": 0,
-            },
+    mark_revoked = (
+        update(HumanSession)
+        .where(HumanSession.id == session_id)
+        .values(
+            issued_at=greatest(HumanSession.issued_at, HumanSession.expires_at, token_expiry),
+            expires_at=0,
         )
+        .execution_options(synchronize_session=False)
     )
+    result = await db.execute(mark_revoked)
+    if result.rowcount == 0:
+        try:
+            async with db.begin_nested():
+                await db.execute(
+                    insert(HumanSession).values(
+                        id=session_id, user_id=user_id, security_version=0, issued_at=token_expiry, expires_at=0
+                    )
+                )
+        except IntegrityError:
+            # Another request created the row in between; revoke that one.
+            await db.execute(mark_revoked)
     await db.commit()
 
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import delete, Integer, cast, exists, func, or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,6 +13,7 @@ from app.models.reference_data import Organization
 from app.models.sourcing import SourcingItem, SourcingRequest, SourcingStatus
 from app.models.user import User
 from app.services.audit_service import format_audit_detail, log_event
+from app.services.db_portability import json_list_is_empty
 from app.services.license_service import (
     compute_expiration_status,
     generate_license_ref,
@@ -121,7 +122,7 @@ async def _reserve_existing_successor_link(
             License.lifecycle_status.is_(None),
             License.renewed_from_id.is_(None),
             License.predecessor_id.is_(None),
-            or_(License.coterm_from_ids.is_(None), func.json_type(License.coterm_from_ids) == "null", License.coterm_from_ids == []),
+            json_list_is_empty(License.coterm_from_ids),
             License.renewed_to_id.is_(None),
             License.is_retired.is_(False),
             License.retirement_scheduled.is_(False),
@@ -655,21 +656,20 @@ async def cancel_renewal(
         raise HTTPException(status_code=404, detail="License not found")
     assert_can_cancel_renewal(license_obj)
 
-    coterm_ids = func.json_each(SourcingItem.coterm_predecessor_ids).table_valued("value").alias("coterm_ids")
-    predecessor_filter = or_(
+    # Narrow in SQL, then match the predecessor list in Python: searching
+    # inside a JSON list is written differently on every database.
+    may_reference_license = or_(
         SourcingItem.renewal_for_license_id == license_id,
-        exists(
-            select(1)
-            .select_from(coterm_ids)
-            .where(cast(coterm_ids.c.value, Integer) == license_id)
-        ),
+        SourcingItem.coterm_predecessor_ids.is_not(None),
     )
     sourcing_result = await db.execute(
         select(SourcingItem)
-        .where(SourcingItem.status == SourcingStatus.sourcing, predecessor_filter)
+        .where(SourcingItem.status == SourcingStatus.sourcing, may_reference_license)
         .options(selectinload(SourcingItem.sourcing_request))
     )
-    sourcing_only_items = list(sourcing_result.scalars().all())
+    sourcing_only_items = [
+        item for item in sourcing_result.scalars().all() if license_id in sourcing_item_predecessor_ids(item)
+    ]
     for item in sourcing_only_items:
         predecessor_ids = sourcing_item_predecessor_ids(item)
         if len(predecessor_ids) > 1:
@@ -699,9 +699,9 @@ async def cancel_renewal(
         await clear_pending_renewal_if_no_open_sourcing(db, license_id)
 
     po_result = await db.execute(
-        select(SourcingItem).where(SourcingItem.status == SourcingStatus.converted, predecessor_filter)
+        select(SourcingItem).where(SourcingItem.status == SourcingStatus.converted, may_reference_license)
     )
-    po_warning = po_result.scalars().first() is not None
+    po_warning = any(license_id in sourcing_item_predecessor_ids(item) for item in po_result.scalars().all())
 
     if license_obj.lifecycle_status == "pending_renewal":
         clear_pending_renewal(license_obj)

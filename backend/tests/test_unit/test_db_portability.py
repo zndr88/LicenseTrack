@@ -29,3 +29,11 @@ async def test_greatest_picks_the_largest_value(db_session):
     assert await db_session.scalar(select(greatest(3, 9, 5))) == 9
     assert await db_session.scalar(select(greatest(9, 3, 5))) == 9
     assert await db_session.scalar(select(greatest(3, 5, 9))) == 9
+
+
+async def test_greatest_accepts_model_columns(db_session):
+    db_session.add(_license(id=40))
+    await db_session.commit()
+    assert await db_session.scalar(select(greatest(License.id, 2))) == 40
+    assert await db_session.scalar(select(greatest(License.id, 70))) == 70
+    assert await db_session.scalar(select(greatest(License.id, License.id, 41))) == 41

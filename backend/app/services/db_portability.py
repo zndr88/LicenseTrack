@@ -16,7 +16,8 @@ def json_list_is_empty(column) -> ColumnElement[bool]:
 
 def greatest(first, *others) -> ColumnElement:
     """The largest of the given values (SQLite: max(a, b); PostgreSQL: GREATEST)."""
-    result = first if isinstance(first, ColumnElement) else literal(first)
+    is_sql = isinstance(first, ColumnElement) or hasattr(first, "__clause_element__")
+    result = first if is_sql else literal(first)
     for other in others:
         result = case((result >= other, result), else_=other)
     return result
