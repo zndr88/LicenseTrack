@@ -4740,3 +4740,58 @@ async def test_manual_retry_is_refused_while_another_transfer_holds_the_claim(
 
     assert response.status_code == 409, response.text
     assert "already running" in response.json()["detail"]
+
+
+async def _create_contract(client, headers, contract_number: str) -> dict:
+    resp = await client.post(
+        "/api/contracts",
+        json={"contract_number": contract_number, "publisher_name": "Shared Publisher"},
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+async def test_converted_license_is_linked_to_the_contract_with_its_number(
+    test_app, auth_headers, db_session
+):
+    contract = await _create_contract(test_app, auth_headers, "CN-CONVERT")
+    order_resp = await test_app.post(
+        "/api/pending-orders",
+        json={"poNumber": "PO-CONTRACT", "supplier": "Normal Supplier"},
+        headers=auth_headers,
+    )
+    assert order_resp.status_code == 201, order_resp.text
+
+    resp = await test_app.post(
+        f"/api/pending-orders/{order_resp.json()['id']}/convert",
+        data={"data": json.dumps(_single_convert_form(poNumber="PO-CONTRACT", contractNumber="cn-convert"))},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200, resp.text
+
+    created = await db_session.get(License, resp.json()[0]["id"])
+    assert created.contract_id == contract["id"]
+
+
+async def test_renewal_successor_is_linked_to_the_contract_with_its_number(
+    test_app, auth_headers, db_session
+):
+    contract = await _create_contract(test_app, auth_headers, "CN-RENEW")
+    predecessor = await _create_license(
+        test_app,
+        auth_headers,
+        publisherName="Shared Publisher",
+        softwareDescription="Shared Description",
+        contractNumber="CN-RENEW",
+        startDate="2025-01-01",
+        endDate="2025-12-31",
+    )
+
+    successor = await _complete_single_renewal(
+        test_app, auth_headers, predecessor["id"], contractNumber="CN-RENEW"
+    )
+
+    created = await db_session.get(License, successor["id"])
+    assert created.contract_number == "CN-RENEW"
+    assert created.contract_id == contract["id"]

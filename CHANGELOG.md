@@ -64,6 +64,12 @@ contracts will be called out under a **Breaking** heading in future releases.
   retry.
 - Restoring a backup no longer leaves temporary database files behind in the
   database folder.
+- Renaming a contract number left behind licenses that were created by
+  converting a pending order, by a renewal or by CSV import: they kept the old
+  number and disappeared from the contract. All licenses that belong to a
+  contract now follow a rename. New licenses are linked to their contract
+  whichever way they are created, and recording a contract links the licenses
+  that already use its number.
 
 ## [1.2.1] - 2026-10-29
 
