@@ -816,3 +816,18 @@ button.notif-card { appearance: none; font: inherit; color: inherit; text-align:
 .info-tip:hover, .info-tip:focus-visible { color: var(--text-1); }
 .fg-label-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
 .fg-label-row label { margin-bottom: 0; }
+
+/* Messages (MessageBanner): inline by default, .msg-floating for the app-wide one */
+.msg { display: flex; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: 12px; border: 1px solid var(--border-lt); border-radius: var(--r); background: var(--bg-2); color: var(--text-2); font-size: 12px; }
+.msg-text { flex: 1; }
+.msg-success { background: var(--green-dim); border-color: var(--green-border); color: var(--green-text); }
+.msg-warning { background: var(--orange-dim); border-color: var(--orange-border); color: var(--orange-text); }
+.msg-error { background: var(--red-dim); border-color: var(--red-border); color: var(--red-text); }
+.msg-action { background: transparent; border: 1px solid currentColor; border-radius: var(--r); color: inherit; cursor: pointer; padding: 3px 10px; font-size: 11px; font-weight: 600; font-family: var(--font-sans); }
+.msg-dismiss { display: inline-flex; background: none; border: none; color: inherit; cursor: pointer; padding: 2px; }
+.msg-floating { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; margin-bottom: 0; padding: 12px 20px; gap: 12px; max-width: 520px; border-radius: 6px; font-family: var(--font-sans); box-shadow: 0 4px 24px rgba(0,0,0,.5); }
+.msg.msg-floating { background: var(--bg-2); }
+.msg-floating .msg-text { color: var(--text-1); }
+.msg-floating.msg-success { border-color: var(--green); }
+.msg-floating.msg-warning { border-color: var(--orange); }
+.msg-floating.msg-error { border-color: var(--red); }

@@ -159,7 +159,7 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
       setUploadingCategory(null);
       if (uploadedCount > 0) await refreshDocumentsAndLicense();
       if (anyError) {
-        setToast(`Upload failed: ${anyError}`);
+        setToast(`Upload failed: ${anyError}`, "error");
         return;
       }
     };
@@ -195,20 +195,20 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
 
   const handleFileDownload = async (doc) => {
     if (!isFileAvailable(doc)) {
-      setToast(documentAvailabilityHelp(doc));
+      setToast(documentAvailabilityHelp(doc), "warning");
       return;
     }
     const { error } = doc.scope === "po"
       ? await downloadProcurementDocument(doc.id, doc.original_filename)
       : await downloadDocument(doc.id, doc.original_filename);
     if (error) {
-      setToast(String(error).includes("document record exists") ? error : `Download failed: ${error}`);
+      setToast(String(error).includes("document record exists") ? error : `Download failed: ${error}`, "error");
     }
   };
 
   const handleFilePreview = async (doc) => {
     if (!isPreviewablePdf(doc)) {
-      setToast(!isFileAvailable(doc) ? documentAvailabilityHelp(doc) : "Only PDF documents can be previewed.");
+      setToast(!isFileAvailable(doc) ? documentAvailabilityHelp(doc) : "Only PDF documents can be previewed.", "warning");
       return;
     }
     onPreviewDocument?.(doc);
@@ -224,13 +224,13 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     });
     setDocumentActionBusy(null);
     if (error) {
-      setToast(`${action.label} failed: ${error}`);
+      setToast(`${action.label} failed: ${error}`, "error");
       return;
     }
     setProcessingRequestPending(true);
     const pendingResults = await loadProcessingResults({ showLoading: false });
     if (pendingResults.length === 0) pollProcessingResults();
-    setToast(`${action.label} requested.`, 5000);
+    setToast(`${action.label} requested.`);
   };
 
   const handleAcceptProcessingResult = async (result, suggestedFieldIndexes = null) => {
@@ -238,12 +238,12 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
     const { data, error } = await acceptDocumentProcessingResult(result.id, suggestedFieldIndexes);
     setProcessingReviewBusy(null);
     if (error) {
-      setToast(`Accept failed: ${error}`);
+      setToast(`Accept failed: ${error}`, "error");
       return;
     }
     await refreshAfterProcessingReview();
     const fields = data?.appliedFields?.join(", ");
-    setToast(fields ? `Applied suggested fields: ${fields}.` : "Suggested fields applied.", 5000);
+    setToast(fields ? `Applied suggested fields: ${fields}.` : "Suggested fields applied.");
   };
 
   const handleRejectProcessingResult = async (result) => {
@@ -258,11 +258,11 @@ export function useLicenseDocuments({ license, onUpdate, setConfirmAction, setTo
         const { error } = await rejectDocumentProcessingResult(result.id);
         setProcessingReviewBusy(null);
         if (error) {
-          setToast(`Reject failed: ${error}`);
+          setToast(`Reject failed: ${error}`, "error");
           return;
         }
         await loadProcessingResults();
-        setToast("Document processing suggestions rejected.", 5000);
+        setToast("Document processing suggestions rejected.");
       },
     });
   };

@@ -687,6 +687,32 @@ describe('DetailPanel procurement milestones', () => {
       noticeHandledAt: '2026-06-26T07:00:00Z',
       noticeHandledByUserId: 2,
     }))
+    expect(screen.getByRole('status')).toHaveTextContent('Notice deadline marked handled.')
+    expect(screen.getByRole('status')).toHaveClass('msg-success')
+  })
+
+  it('shows a failed notice update as an error that stays until dismissed', async () => {
+    const user = userEvent.setup()
+    const { markLicenseNoticeHandled } = await import('../api/licenses.js')
+    markLicenseNoticeHandled.mockResolvedValue({ data: null, error: 'Server unavailable' })
+
+    render(
+      <DetailPanel
+        {...baseProps}
+        user={{ id: 2, role: 'admin' }}
+        license={{ ...baseLicense, noticeDate: '2026-07-26' }}
+      />
+    )
+
+    await user.click(screen.getByText('Key Dates & Contract'))
+    await user.click(screen.getByRole('button', { name: /mark handled/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Notice update failed: Server unavailable')
+    expect(alert).toHaveClass('msg-error')
+
+    await user.click(within(alert).getByRole('button', { name: 'Dismiss message' }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
 
