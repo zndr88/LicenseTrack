@@ -2,9 +2,10 @@ import enum
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Integer, JSON, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.database import Base
+from app.services.procurement_identity import normalize_po_number
 
 
 class LicenseType(str, enum.Enum):
@@ -59,16 +60,16 @@ class License(Base):
         ),
         CheckConstraint(
             "(license_type = 'maintenance' AND parent_license_id IS NOT NULL "
-            "AND is_legacy_unlinked_maintenance = 0) "
+            "AND is_legacy_unlinked_maintenance = false) "
             "OR (license_type = 'maintenance' AND parent_license_id IS NULL "
-            "AND (is_legacy_unlinked_maintenance = 1 OR is_retired = 1)) "
+            "AND (is_legacy_unlinked_maintenance = true OR is_retired = true)) "
             "OR (license_type != 'maintenance' AND parent_license_id IS NULL "
-            "AND is_legacy_unlinked_maintenance = 0)",
+            "AND is_legacy_unlinked_maintenance = false)",
             name="ck_license_maintenance_has_parent",
         ),
         CheckConstraint(
-            "(has_maintenance = 1 AND active_maintenance_id IS NOT NULL) "
-            "OR (has_maintenance = 0 AND active_maintenance_id IS NULL)",
+            "(has_maintenance = true AND active_maintenance_id IS NOT NULL) "
+            "OR (has_maintenance = false AND active_maintenance_id IS NULL)",
             name="ck_license_maintenance_link_consistency",
         ),
     )
@@ -113,6 +114,15 @@ class License(Base):
         Integer, ForeignKey("contracts.id", use_alter=True, name="fk_license_contract", ondelete="SET NULL"), nullable=True, index=True
     )
     po_number: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    # normalize_po_number(po_number), kept in step by the validator below so
+    # PO matching is one indexed comparison on every database. Never set directly.
+    po_key: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="", index=True)
+
+    @validates("po_number")
+    def _sync_po_key(self, _key, value):
+        self.po_key = normalize_po_number(value)
+        return value
+
     po_line_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("po_line_register.id"), nullable=True, index=True
     )

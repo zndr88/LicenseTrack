@@ -1,10 +1,11 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.database import Base
+from app.services.procurement_identity import normalize_po_number
 
 
 class DocumentCategory(str, enum.Enum):
@@ -54,6 +55,13 @@ class ProcurementDocument(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     po_number: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     shared_po_number: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    # normalize_po_number(shared_po_number); None when the document is not shared by PO.
+    shared_po_key: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
+
+    @validates("shared_po_number")
+    def _sync_shared_po_key(self, _key, value):
+        self.shared_po_key = normalize_po_number(value) if value is not None else None
+        return value
     target_sourcing_item_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     pending_order_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("pending_orders.id"), nullable=True, index=True

@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import ProcurementDocument
@@ -37,7 +37,7 @@ async def filter_viewable_procurement_documents(db: AsyncSession, documents: lis
     if source_item_ids:
         predicates.append(License.source_sourcing_item_id.in_(source_item_ids))
     if po_numbers:
-        predicates.append(func.licensetrack_normalize_po(License.po_number).in_(po_numbers))
+        predicates.append(License.po_key.in_(po_numbers))
     if license_ids:
         predicates.append(License.id.in_(license_ids))
     if order_ids:
@@ -92,7 +92,7 @@ async def get_procurement_document_licenses(
         query = select(License).where(License.pending_order_id == document.pending_order_id)
     elif document.shared_po_number is not None:
         query = select(License).where(
-            func.licensetrack_normalize_po(License.po_number) == normalize_po_number(document.shared_po_number)
+            License.po_key == normalize_po_number(document.shared_po_number)
         )
     elif document.license_id is not None:
         query = select(License).where(License.id == document.license_id)

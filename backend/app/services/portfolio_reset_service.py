@@ -7,7 +7,7 @@ import logging
 import shutil
 from pathlib import Path
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings as app_settings
@@ -24,6 +24,7 @@ from app.models.settings import GlobalSettings
 from app.models.sourcing import SourcingItem, SourcingQuoteDocument, SourcingRequest
 from app.models.webhook import WebhookDelivery
 from app.services.audit_service import log_event
+from app.services.db_portability import lock_out_other_writers
 from app.services.backup_service import (
     PORTFOLIO_STORAGE_DIRECTORIES,
     create_portfolio_reset_archive,
@@ -34,6 +35,11 @@ logger = logging.getLogger(__name__)
 
 PORTFOLIO_RESET_CONFIRMATION = "RESET PORTFOLIO"
 _reset_lock = asyncio.Lock()
+# Tables whose rows the reset archives and deletes; other writers wait until it commits.
+_RESET_LOCKED_TABLES = tuple(
+    model.__tablename__
+    for model in (License, SourcingRequest, SourcingItem, PendingOrder, Contract, Document, ProcurementDocument)
+)
 
 
 async def portfolio_counts(db: AsyncSession) -> dict[str, int]:
@@ -82,10 +88,10 @@ async def reset_portfolio(
 
     async with _reset_lock:
         # Authentication has already read through this session. End that
-        # transaction, then take a SQLite write reservation so another request
+        # transaction, then take a write reservation so another request
         # cannot commit portfolio changes between the archive and deletion.
         await db.commit()
-        await db.execute(text("BEGIN IMMEDIATE"))
+        await lock_out_other_writers(db, _RESET_LOCKED_TABLES)
 
         settings_row = await db.scalar(select(GlobalSettings).where(GlobalSettings.id == 1))
         backup_location = (

@@ -31,7 +31,6 @@ async def test_file_database_uses_wal_busy_timeout_and_foreign_keys(tmp_path):
             assert (await conn.exec_driver_sql("PRAGMA journal_mode")).scalar_one() == "wal"
             assert (await conn.exec_driver_sql("PRAGMA busy_timeout")).scalar_one() == 15000
             assert (await conn.exec_driver_sql("PRAGMA foreign_keys")).scalar_one() == 1
-            assert (await conn.exec_driver_sql("SELECT licensetrack_normalize_po('  Po  12 ')")).scalar_one() == "po 12"
     finally:
         await engine.dispose()
 

@@ -30,6 +30,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - When more than one copy of LicenseTrack shares a database, license retirement,
   maintenance hand-over, the evidence-transfer retry and the scheduled backup now
   run in only one copy at a time.
+- PO numbers are now matched through a stored, normalized copy of the PO number
+  instead of a database function. Matching rules are unchanged. Existing
+  databases are updated automatically on upgrade.
 
 ### Fixed
 

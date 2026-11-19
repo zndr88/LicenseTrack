@@ -549,7 +549,7 @@ async def merge_coterm_sourcing_items_record(
         select(SourcingItem)
         .where(SourcingItem.id.in_(sourcing_item_ids))
         .options(selectinload(SourcingItem.sourcing_request))
-        .with_for_update()
+        .with_for_update(of=SourcingItem)
     )
     items = list(result.scalars().all())
     found_ids = {item.id for item in items}
@@ -916,7 +916,7 @@ async def update_sourcing_item_record(
         select(SourcingItem)
         .where(SourcingItem.id == item_id)
         .options(selectinload(SourcingItem.sourcing_request))
-        .with_for_update()
+        .with_for_update(of=SourcingItem)
     )
     item = result.scalar_one_or_none()
     if item is None:
@@ -966,7 +966,7 @@ async def delete_sourcing_item_record(
         select(SourcingItem)
         .where(SourcingItem.id == item_id)
         .options(selectinload(SourcingItem.sourcing_request))
-        .with_for_update()
+        .with_for_update(of=SourcingItem)
     )
     item = result.scalar_one_or_none()
     if item is None:
@@ -1060,7 +1060,7 @@ async def get_sourcing_request_for_update_or_404(
         .options(
             selectinload(SourcingRequest.items).selectinload(SourcingItem.custom_field_values)
         )
-        .with_for_update()
+        .with_for_update(of=SourcingRequest)
     )
     request = result.scalar_one_or_none()
     if request is None:
@@ -1579,7 +1579,7 @@ async def convert_freeware_sourcing_item_record(
         select(SourcingItem)
         .where(SourcingItem.id == item_id)
         .options(selectinload(SourcingItem.sourcing_request))
-        .with_for_update()
+        .with_for_update(of=SourcingItem)
     )
     item = result.scalar_one_or_none()
     if item is None:
@@ -1659,7 +1659,7 @@ async def convert_sourcing_item_workflow(
         select(SourcingItem)
         .where(SourcingItem.id == item_id)
         .options(selectinload(SourcingItem.sourcing_request).selectinload(SourcingRequest.items))
-        .with_for_update()
+        .with_for_update(of=SourcingItem)
     )
     item = result.scalar_one_or_none()
     if item is None:
