@@ -2414,3 +2414,50 @@ describe('DetailPanel leaving the full edit form', () => {
     expect(onUpdate).not.toHaveBeenCalled()
   })
 })
+
+describe('DetailPanel remembered sections', () => {
+  const sectionHeader = (key) => document.querySelector(`[aria-controls="dp-section-${key}"]`)
+
+  beforeEach(() => {
+    window.localStorage.clear()
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('reopens the sections the user left open', async () => {
+    const user = userEvent.setup()
+    const first = render(<DetailPanel {...baseProps} />)
+    expect(sectionHeader('dates')).toHaveAttribute('aria-expanded', 'false')
+    await user.click(sectionHeader('dates'))
+    await user.click(sectionHeader('identity'))
+    first.unmount()
+
+    render(<DetailPanel {...baseProps} license={{ ...baseLicense, id: 5, licenseRef: 'LT-2026-00005' }} />)
+
+    expect(sectionHeader('dates')).toHaveAttribute('aria-expanded', 'true')
+    expect(sectionHeader('identity')).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('does not apply one user’s sections to another user', async () => {
+    const user = userEvent.setup()
+    const first = render(<DetailPanel {...baseProps} />)
+    await user.click(sectionHeader('dates'))
+    first.unmount()
+
+    render(<DetailPanel {...baseProps} user={{ id: 99, role: 'viewer' }} />)
+
+    expect(sectionHeader('dates')).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('still opens the section named in the link, next to the remembered ones', async () => {
+    const user = userEvent.setup()
+    const first = render(<DetailPanel {...baseProps} />)
+    await user.click(sectionHeader('dates'))
+    first.unmount()
+
+    window.history.replaceState(null, '', '/licenses/1#documents')
+    render(<DetailPanel {...baseProps} />)
+
+    await waitFor(() => expect(sectionHeader('documents')).toHaveAttribute('aria-expanded', 'true'))
+    expect(sectionHeader('dates')).toHaveAttribute('aria-expanded', 'true')
+  })
+})
