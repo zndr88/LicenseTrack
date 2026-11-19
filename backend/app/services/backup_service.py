@@ -34,6 +34,8 @@ PORTFOLIO_STORAGE_DIRECTORIES = (
 DATABASE_BACKUP_PREFIX = "license_lifecycle_backup_"
 PORTFOLIO_RESET_ARCHIVE_PREFIX = "license_lifecycle_pre_portfolio_reset_"
 RESTORE_SAFETY_ARCHIVE_PREFIX = "license_lifecycle_pre_document_restore_"
+UNFINISHED_BACKUP_SUFFIX = ".partial"
+UNFINISHED_BACKUP_MAX_AGE_SECONDS = 24 * 60 * 60
 _routine_backup_lock = asyncio.Lock()
 
 REQUIRED_RESTORE_TABLES = {
@@ -263,6 +265,9 @@ def create_backup(backup_location: str) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     zip_name = f"license_lifecycle_backup_{timestamp}.zip"
     zip_path = backup_dir / zip_name
+    # The archive is written under a name that retention and the backup list
+    # do not see, and only gets its real name after it has been verified.
+    partial_path = backup_dir / f".{zip_name}{UNFINISHED_BACKUP_SUFFIX}"
 
     logger.info("Creating backup in %s", backup_location)
 
@@ -275,7 +280,7 @@ def create_backup(backup_location: str) -> Path:
 
         _copy_sqlite_database(db_path, tmp_path)
 
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(partial_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(tmp_path, arcname=db_path.name)
             zf.writestr(
                 "backup_manifest.json",
@@ -291,16 +296,19 @@ def create_backup(backup_location: str) -> Path:
                     sort_keys=True,
                 ),
             )
+
+        # Verify the zip is not corrupted before giving it its real name.
+        with zipfile.ZipFile(partial_path, "r") as verify_zf:
+            bad_file = verify_zf.testzip()
+        if bad_file is not None:
+            raise RuntimeError(f"Backup integrity check failed: corrupt entry '{bad_file}'")
+        os.replace(partial_path, zip_path)
+    except BaseException:
+        partial_path.unlink(missing_ok=True)
+        raise
     finally:
         if tmp_path is not None:
             tmp_path.unlink(missing_ok=True)
-
-    # Verify the zip is not corrupted before returning it.
-    with zipfile.ZipFile(zip_path, "r") as verify_zf:
-        bad_file = verify_zf.testzip()
-        if bad_file is not None:
-            zip_path.unlink(missing_ok=True)
-            raise RuntimeError(f"Backup integrity check failed: corrupt entry '{bad_file}'")
 
     logger.info("Backup created: %s (%.1f KB)", zip_path.name, zip_path.stat().st_size / 1024)
     return zip_path
@@ -573,16 +581,55 @@ def resolve_server_backup_archive(backup_location: str, filename: str) -> Path:
     raise FileNotFoundError("Server backup archive was not found.")
 
 
+def _is_readable_backup_archive(zip_path: Path) -> bool:
+    """Return True when *zip_path* opens as a zip and holds a database file.
+
+    A zip keeps its table of contents at the end of the file, so an archive
+    that was cut off while being written fails here.
+    """
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            return any(name.lower().endswith(".db") for name in zf.namelist())
+    except (OSError, zipfile.BadZipFile):
+        return False
+
+
+def _remove_stale_unfinished_backups(backup_dir: Path) -> None:
+    """Delete unfinished backup files left behind by a process that was stopped."""
+    cutoff = time.time() - UNFINISHED_BACKUP_MAX_AGE_SECONDS
+    for leftover in backup_dir.glob(f".{DATABASE_BACKUP_PREFIX}*.zip{UNFINISHED_BACKUP_SUFFIX}"):
+        try:
+            if leftover.stat().st_mtime < cutoff:
+                leftover.unlink(missing_ok=True)
+        except OSError:
+            logger.warning("Could not remove unfinished backup file %s", leftover.name)
+
+
 def prune_backups(backup_location: str, keep: int) -> None:
-    """Delete oldest backups, keeping only the most recent `keep` files."""
+    """Delete the oldest backups, keeping the most recent `keep` readable ones.
+
+    A file that cannot be read as a backup does not count toward `keep`, so it
+    can never push a good backup out. Such files are reported and left alone.
+    """
     backup_dir = Path(backup_location).resolve()
     if not backup_dir.exists():
         return
+    _remove_stale_unfinished_backups(backup_dir)
     backups = sorted(
         backup_dir.glob("license_lifecycle_backup_*.zip"),
         key=lambda p: p.stat().st_mtime,
     )
-    to_delete = backups[:-keep] if keep > 0 else []
+    readable = []
+    for backup in backups:
+        if _is_readable_backup_archive(backup):
+            readable.append(backup)
+        else:
+            logger.warning(
+                "Backup file %s in %s cannot be read and is not counted as a backup. Remove it by hand.",
+                backup.name,
+                backup_location,
+            )
+    to_delete = readable[:-keep] if keep > 0 else []
     for old in to_delete:
         old.unlink(missing_ok=True)
     if to_delete:
