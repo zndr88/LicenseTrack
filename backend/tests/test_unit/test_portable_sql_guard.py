@@ -36,3 +36,12 @@ def test_row_locks_name_the_table_they_lock():
         if ".with_for_update()" in line
     ]
     assert offenders == [], f"Use with_for_update(of=Model): {offenders}"
+
+
+def test_po_numbers_are_not_written_by_bulk_statements():
+    """Bulk UPDATE/INSERT statements skip the validators that keep po_key in step."""
+    pattern = re.compile(r"\.values\([^)]*\b(po_number|shared_po_number)\s*=", re.DOTALL)
+    offenders = [
+        str(path.relative_to(APP_DIR)) for path in APP_DIR.rglob("*.py") if pattern.search(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == [], f"Set po_number on the object, not in a bulk statement: {offenders}"

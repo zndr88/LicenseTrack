@@ -219,3 +219,9 @@ def test_format_document_amendment_detail_includes_required_context():
     assert "actorEmail=editor@test.local" in result
     assert "amendmentTimestamp=" in result
     assert "reason=duplicate invoice" in result
+
+
+def test_diff_fields_ignores_internal_po_keys():
+    before = {"po_number": "PO 1", "po_key": "po 1", "shared_po_key": None}
+    after = {"po_number": "PO 2", "po_key": "po 2", "shared_po_key": "po 2"}
+    assert diff_fields(before, after) == "po_number: PO 1 → PO 2"

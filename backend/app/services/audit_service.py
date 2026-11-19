@@ -27,6 +27,9 @@ _DEFAULT_EXCLUDE: set[str] = {
     "coterm_predecessor_ids",
     "coterm_from_ids",
     "created_by",
+    # Internal copies of the PO number used for matching; the visible field is logged.
+    "po_key",
+    "shared_po_key",
 }
 
 _api_token_audit_context: ContextVar[dict | None] = ContextVar(
