@@ -5,6 +5,7 @@ from sqlalchemy import delete, select
 from app.database import AsyncSessionLocal
 from app.models.audit_log import AuditLog
 from app.models.settings import GlobalSettings
+from app.services.job_lock import DEFAULT_STALE_AFTER, run_locked_job
 from app.services.notification_sender import run_daily_notifications
 from app.services.license_retirement_service import retire_due_licenses
 from app.services.maintenance_service import hand_over_due_maintenance
@@ -15,12 +16,30 @@ from app.services.webhook_service import dispatch_pending_webhooks
 log = logging.getLogger(__name__)
 
 
-async def _run_database_job(job, *, skipped=None):
-    """Run one scheduler workload unless database replacement is in progress."""
+# Per-job stale times for whole-job locks; jobs not listed use DEFAULT_STALE_AFTER.
+JOB_LOCK_STALE_AFTER = {"scheduled_backup": timedelta(hours=3)}
+
+
+async def _run_database_job(job, *, skipped=None, lock: str | None = None):
+    """Run one scheduler workload unless database replacement is in progress.
+
+    With *lock*, the workload also runs in only one app copy at a time
+    (see app.services.job_lock); another copy holding it returns *skipped*.
+    """
     if not await restore_maintenance.enter_background_job():
         return skipped
     try:
-        return await job()
+        if lock is None:
+            return await job()
+        return await run_locked_job(
+            lock,
+            job,
+            skipped=skipped,
+            stale_after=JOB_LOCK_STALE_AFTER.get(lock, DEFAULT_STALE_AFTER),
+            # Looked up at call time so tests that patch the scheduler's
+            # session factory also cover the lock.
+            session_factory=AsyncSessionLocal,
+        )
     finally:
         await restore_maintenance.leave_background_job()
 
@@ -163,6 +182,7 @@ async def start_scheduler():
             swept_count = await _run_database_job(
                 sweep_stale_evidence_transfers,
                 skipped=0,
+                lock="evidence_transfer_sweep",
             )
             if swept_count:
                 log.info(f"Evidence transfer sweep attempted for {swept_count} order(s)")
@@ -174,7 +194,7 @@ async def start_scheduler():
                 async with AsyncSessionLocal() as db:
                     return await retire_due_licenses(db)
 
-            retired_count = await _run_database_job(run_retirements, skipped=0)
+            retired_count = await _run_database_job(run_retirements, skipped=0, lock="license_retirement")
             if retired_count:
                 log.info(f"Completed {retired_count} scheduled license retirement(s)")
         except Exception as exc:
@@ -185,7 +205,11 @@ async def start_scheduler():
                 async with AsyncSessionLocal() as db:
                     return await hand_over_due_maintenance(db)
 
-            handed_over = await _run_database_job(run_maintenance_hand_over, skipped=0)
+            handed_over = await _run_database_job(
+                run_maintenance_hand_over,
+                skipped=0,
+                lock="maintenance_hand_over",
+            )
             if handed_over:
                 log.info(f"Handed over {handed_over} parent(s) to their next support record")
         except Exception as exc:
@@ -259,7 +283,7 @@ async def start_scheduler():
                     ):
                         await _run_backup(gs_fresh)
 
-                await _run_database_job(run_backup)
+                await _run_database_job(run_backup, lock="scheduled_backup")
 
         # Run audit log prune once per calendar day (at notification time or backup time)
         today_day = now_after.date().day

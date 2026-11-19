@@ -436,6 +436,15 @@ cycle's notification or backup job. Webhook dispatch first collects due delivery
 IDs, then loads and commits each delivery in a separate session; one delivery's
 write transaction is not held open during later deliveries.
 
+**Running more than one copy.** Jobs that must not run twice take a whole-job lock
+through `app/services/job_lock.py` (`_run_database_job(..., lock="<name>")`), stored
+in `scheduler_job_locks`: evidence-transfer retry, license retirement, maintenance
+hand-over and the scheduled backup. A claim older than its stale time (30 minutes;
+3 hours for the backup) is taken over. Webhook dispatch and daily notifications are
+protected by their own per-record claims, and the audit-log prune is idempotent, so
+they take no job lock. A new scheduled job must either take a lock or document why
+it is safe to run twice.
+
 Admin settings are grouped into four product areas:
 
 - General: storage, notifications, SMTP, and OIDC.
