@@ -3259,3 +3259,39 @@ async def test_external_reference_does_not_warn_for_update_target(test_app, auth
     row = response.json()["rows"][0]
     assert row["importAction"] == "update"
     assert row["duplicateWarnings"] == []
+
+
+async def test_imported_license_is_linked_to_the_contract_with_its_number(
+    test_app, auth_headers, db_session
+):
+    contract_resp = await test_app.post(
+        "/api/contracts",
+        json={"contract_number": "CN-IMPORT", "publisher_name": "Acme"},
+        headers=auth_headers,
+    )
+    assert contract_resp.status_code == 201, contract_resp.text
+    csv_bytes = _make_csv(
+        ["publisher_name", "software_description", "license_type", "contract_number", "currency"],
+        [
+            {
+                "publisher_name": "Acme",
+                "software_description": "Imported under a contract",
+                "license_type": "freeware",
+                "contract_number": "cn-import",
+                "currency": "EUR",
+            },
+        ],
+    )
+
+    response = await test_app.post(
+        "/api/import/confirm",
+        headers=auth_headers,
+        files={"file": ("licenses.csv", csv_bytes, "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["importedCount"] == 1
+
+    result = await db_session.execute(
+        select(License).where(License.software_description == "Imported under a contract")
+    )
+    assert result.scalar_one().contract_id == contract_resp.json()["id"]

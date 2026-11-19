@@ -47,6 +47,7 @@ from app.services.contract_identity_service import (
     assert_unique_contract_number,
     contract_number_is_unambiguous,
     license_contract_match,
+    link_licenses_by_number,
 )
 from app.services.reference_data_service import resolve_contract_publisher
 from app.services.license_service import compute_expiration_status
@@ -173,6 +174,8 @@ async def create_contract(
     )
     db.add(contract)
     await db.flush()
+    # Licenses recorded before the contract existed already carry its number.
+    await link_licenses_by_number(db, contract)
 
     ip = request.client.host if request.client else None
     await log_event(
@@ -223,6 +226,9 @@ async def update_contract(
                 contract.contract_number,
                 current_contract_id=contract.id,
             )
+            # Licenses that belong to this contract by number only are linked
+            # first, so the rename below carries them along.
+            await link_licenses_by_number(db, contract)
         await assert_unique_contract_number(
             db,
             new_contract_number,

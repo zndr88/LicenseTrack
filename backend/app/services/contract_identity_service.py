@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -79,6 +80,24 @@ async def assert_contract_number_unambiguous(
             status_code=409,
             detail="Contract number is duplicated by another contract record. Resolve duplicates before renaming.",
         )
+
+
+async def link_licenses_by_number(db: AsyncSession, contract: Contract) -> None:
+    """Link licenses that carry this contract's number but have no contract link yet.
+
+    The caller makes sure the number belongs to this contract only.
+    """
+    normalized = normalize_contract_number(contract.contract_number)
+    if not normalized:
+        return
+    await db.execute(
+        sa_update(License)
+        .where(
+            License.contract_id.is_(None),
+            func.lower(func.trim(License.contract_number)) == normalized,
+        )
+        .values(contract_id=contract.id)
+    )
 
 
 async def resolve_contract_id_for_number(db: AsyncSession, contract_number: str | None) -> int | None:
