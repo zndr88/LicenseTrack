@@ -115,7 +115,12 @@ describe("guard and timer hooks", () => {
     act(() => result.current.showError("Failed"));
     expect(result.current.toast).toMatchObject({ msg: "Failed", type: "error" });
 
-    act(() => vi.advanceTimersByTime(4000));
+    // Errors stay until dismissed or replaced.
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(result.current.toast).toMatchObject({ msg: "Failed", type: "error" });
+
+    act(() => result.current.showToast("Done"));
+    act(() => vi.advanceTimersByTime(5000));
     expect(result.current.toast).toBeNull();
   });
 });

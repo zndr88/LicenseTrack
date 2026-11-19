@@ -18,6 +18,7 @@ import {
   rejectPluginSuggestion,
 } from "../api/pluginSuggestions.js";
 import { useLicenseDocuments } from "./useLicenseDocuments.js";
+import { useToast } from "./useToast.js";
 import { useCustomFields } from "./useCustomFields.js";
 import { useDetailSectionLink } from "./useDetailSectionLink.js";
 import { buildCustomFieldValuePayload, customFieldValueMap } from "../utils/customFieldFormValues.js";
@@ -62,19 +63,13 @@ export function useDetailPanelState({
   const [savingLicense, setSavingLicense] = useState(false);
   const [noticeActionBusy, setNoticeActionBusy] = useState(false);
   const [editError, setEditError] = useState(null);
-  const [toast, setToastState] = useState(null);
-  const toastTimerRef = useRef(null);
-  // Shared by the whole panel. Pass autoDismissMs to clear the toast later;
-  // any new toast replaces the pending timer, and unmount cancels it.
-  const setToast = useCallback((msg, autoDismissMs = null) => {
-    clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = null;
-    setToastState(msg);
-    if (msg != null && autoDismissMs) {
-      toastTimerRef.current = setTimeout(() => setToastState(null), autoDismissMs);
-    }
-  }, []);
-  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
+  // Shared by the whole panel: setToast(text, type) shows a message, where type
+  // is "success" (default), "warning" or "error"; setToast(null) dismisses it.
+  const { toast, showToast, dismissToast } = useToast({ defaultType: "success" });
+  const setToast = useCallback((msg, type) => {
+    if (msg == null) dismissToast();
+    else showToast(msg, type);
+  }, [showToast, dismissToast]);
 
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
   const [maintenanceHistory, setMaintenanceHistory] = useState([]);
@@ -229,12 +224,12 @@ export function useDetailPanelState({
     const { data, error } = await acceptPluginSuggestion(suggestion.id, suggestedFieldIndexes);
     setPluginSuggestionReviewBusy(null);
     if (error) {
-      setToast(`Accept failed: ${error}`);
+      setToast(`Accept failed: ${error}`, "error");
       return;
     }
     await refreshAfterPluginSuggestionReview();
     const fields = data?.appliedFields?.join(", ");
-    setToast(fields ? `Applied Official Extension suggestions: ${fields}.` : "Official Extension suggestions applied.", 5000);
+    setToast(fields ? `Applied Official Extension suggestions: ${fields}.` : "Official Extension suggestions applied.");
   };
 
   const handleRejectPluginSuggestion = async (suggestion) => {
@@ -249,11 +244,11 @@ export function useDetailPanelState({
         const { error } = await rejectPluginSuggestion(suggestion.id);
         setPluginSuggestionReviewBusy(null);
         if (error) {
-          setToast(`Reject failed: ${error}`);
+          setToast(`Reject failed: ${error}`, "error");
           return;
         }
         await loadPluginSuggestions();
-        setToast("Official Extension suggestions rejected.", 5000);
+        setToast("Official Extension suggestions rejected.");
       },
     });
   };
@@ -288,11 +283,11 @@ export function useDetailPanelState({
     const { data, error } = await markLicenseNoticeHandled(license.id);
     setNoticeActionBusy(false);
     if (error) {
-      setToast(`Notice update failed: ${error}`);
+      setToast(`Notice update failed: ${error}`, "error");
       return;
     }
     onUpdate(license.id, normalizeLicense(data));
-    setToast("Notice deadline marked handled.", 5000);
+    setToast("Notice deadline marked handled.");
   };
 
   // Quick link to an existing maintenance record (full edit and Edit coverage).

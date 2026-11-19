@@ -60,7 +60,6 @@ import ChangePasswordModal from "./components/auth/ChangePasswordModal.jsx";
 import LoginScreen from "./components/auth/LoginScreen.jsx";
 import Sidebar from "./components/layout/Sidebar.jsx";
 import TopBar from "./components/layout/TopBar.jsx";
-import Icon from "./components/ui/Icon.jsx";
 import { ROLE_PERMISSIONS } from "./constants/permissions.js";
 import { useAppNavigation } from "./hooks/useAppNavigation.js";
 import { useUrlSync } from "./hooks/useUrlSync.js";
@@ -68,6 +67,7 @@ import { useAppSettings } from "./hooks/useAppSettings.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useLicenseCreation } from "./hooks/useLicenseCreation.js";
 import { useToast } from "./hooks/useToast.js";
+import MessageBanner from "./components/ui/MessageBanner.jsx";
 import { NumberFormatContext } from "./components/ui/NumberFormatContext.js";
 
 const DEFAULT_SIDEBAR_STATS = { active: 0, upcoming: 0, pending: 0, expiring: 0, expired: 0, renewed: 0 };
@@ -181,13 +181,6 @@ export default function App() {
     setOpenContractId(data.id);
   }, [showError, setPage, setOpenContractId]);
 
-  const toastConfig = useMemo(() => {
-    if (!toast) return null;
-    if (toast.type === "success") return { border: "var(--green)", icon: "check", color: "var(--green-text)" };
-    if (toast.type === "error") return { border: "var(--red)", icon: "alert", color: "var(--red-text)" };
-    return { border: "var(--border-lt)", icon: "check", color: "var(--text-2)" };
-  }, [toast]);
-
   if (authBootstrapping) return null;
 
   if (!currentUser) return <LoginScreen onLogin={(u) => setCurrentUser(u)} />;
@@ -280,14 +273,7 @@ export default function App() {
         </main>
       </div>
 
-      {toast && toastConfig && (
-        <div className="toast" style={{ borderColor: toastConfig.border }}>
-          <Icon name={toastConfig.icon} size={16} color={toastConfig.color} />
-          <span style={{ flex: 1 }}>{toast.msg}</span>
-          {toast.action && <button onClick={() => { toast.action.onClick(); dismissToast(); }} className="toast-action" style={{ borderColor: toastConfig.border, color: toastConfig.color }}>{toast.action.label}</button>}
-          <button onClick={dismissToast} className="toast-dismiss" aria-label="Dismiss notification"><Icon name="x" size={14} /></button>
-        </div>
-      )}
+      <MessageBanner floating message={toast} onDismiss={dismissToast} />
     </div>
     </NumberFormatContext.Provider>
   );

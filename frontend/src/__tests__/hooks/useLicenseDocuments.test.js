@@ -107,7 +107,7 @@ describe("useLicenseDocuments", () => {
 
     expect(result.current.documents).toEqual([storedDocument]);
     expect(props.onUpdate).toHaveBeenCalledWith(1, expect.objectContaining({ documentCount: 1 }));
-    expect(props.setToast).toHaveBeenCalledWith("Upload failed: Storage unavailable");
+    expect(props.setToast).toHaveBeenCalledWith("Upload failed: Storage unavailable", "error");
   });
 
   beforeEach(() => {

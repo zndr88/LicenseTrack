@@ -16,7 +16,8 @@ import ConvertSourcingModal from "../procurement/ConvertSourcingModal.jsx";
 import CotermSuggestionBanner from "./sourcing/CotermSuggestionBanner.jsx";
 import MergeSourcingModal from "./sourcing/MergeSourcingModal.jsx";
 import SourcingTable, { isDirectFreewareItem } from "./sourcing/SourcingTable.jsx";
-import SourcingToast from "./sourcing/SourcingToast.jsx";
+import MessageBanner from "../ui/MessageBanner.jsx";
+import { useToast } from "../../hooks/useToast.js";
 import { useSourcingActions } from "./sourcing/useSourcingActions.js";
 import { useSourcingMerge } from "./sourcing/useSourcingMerge.js";
 import { useSourcingPageData } from "./sourcing/useSourcingPageData.js";
@@ -104,19 +105,9 @@ export default function SourcingPage({
   // Requests start collapsed; this tracks the ones the user opened.
   const [expandedRequestIds, setExpandedRequestIds] = useState(() => new Set());
   const [expandedHistoryRequestId, setExpandedHistoryRequestId] = useState(null);
-  const [localToast, setLocalToast] = useState(null);
+  const { toast: localToast, showToast, dismissToast } = useToast({ defaultType: "success" });
   const [inlineEditEnabled, setInlineEditEnabled] = useState(false);
   const tableRef = useRef(null);
-  const toastTimerRef = useRef(null);
-
-  // One timer at a time: a new toast restarts it, and unmount cancels it.
-  const showToast = useCallback((msg, type = "success", action = null) => {
-    setLocalToast({ msg, type, action });
-    clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setLocalToast(null), 5000);
-  }, []);
-
-  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
   const openSourcingRequest = useCallback((requestId) => {
     if (requestId == null) return;
@@ -368,7 +359,7 @@ export default function SourcingPage({
       </div>
 
       <div className="page-content">
-        <SourcingToast toast={localToast} onDismiss={() => setLocalToast(null)} />
+        <MessageBanner message={localToast} onDismiss={dismissToast} />
         <CotermSuggestionBanner
           cotermGroups={cotermGroups}
           canEdit={perms.canEdit}

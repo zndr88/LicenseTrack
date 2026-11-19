@@ -41,6 +41,12 @@ contracts will be called out under a **Breaking** heading in future releases.
   other license. The edit form now belongs to the license it was opened for,
   and leaving it with unsaved changes (another license, Cancel, the close
   button, another page or browser Back) asks before discarding them.
+- Warnings and failures on the Sourcing page and in License Details, such as
+  "saved, but some documents could not be uploaded" or "Accept failed", were
+  shown as green success messages. Messages now have separate success, warning
+  and error styles everywhere. Errors and warnings stay until dismissed instead
+  of disappearing after a few seconds, success messages clear after 5 seconds,
+  and messages are announced to screen readers.
 - Several requests writing at the same time no longer fail with a server
   error. A write now waits up to 15 seconds for the database; if it is still
   busy, the API answers 503 with a `Retry-After` header so integrations can
