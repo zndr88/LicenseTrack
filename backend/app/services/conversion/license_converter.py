@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.license import License, LicenseType
+from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.conversion.maintenance_linker import create_maintenance_purchase
 from app.services.license_service import (
     TYPE_DESCRIPTION_REQUIRED_DETAIL,
@@ -29,6 +30,7 @@ async def create_purchase_license(
     parent_sourcing_item_id = item_data.pop("parent_sourcing_item_id", None)
     license_type = item_data.get("license_type")
     await resolve_license_reference_fields(db, item_data)
+    item_data["contract_id"] = await resolve_contract_id_for_number(db, item_data.get("contract_number"))
 
     if is_non_expiring_license_type(license_type):
         item_data["end_date"] = None

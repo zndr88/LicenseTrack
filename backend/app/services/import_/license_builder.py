@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.import_.license_refs import license_ref_matches
 
 from app.models.license import License, LicenseMetric, LicenseType, MaintenanceCoverage, MaintenancePricingBasis
+from app.services.contract_identity_service import resolve_contract_id_for_number
 from app.services.csv_importer import ParsedRow
 from app.services.license_service import (
     is_non_expiring_license_type,
@@ -170,6 +171,10 @@ async def build_license(
     normalise_type_opt_in_fields(data)
     validate_term_date_order(data.get("start_date"), data.get("end_date"))
     await inherit_po_total_override(db, data)
+    try:
+        data["contract_id"] = await resolve_contract_id_for_number(db, row.contract_number)
+    except HTTPException as exc:
+        raise ValueError(exc.detail) from exc
 
     return License(
         **data,
