@@ -87,7 +87,7 @@ export default function RenewalWorkflowSection({
         const result = await onUnlinkExistingSuccessor(license.id);
         setUnlinkingSuccessor(false);
         if (!result?.ok) {
-          setToast(`Unlink failed: ${result?.error || "Unknown error"}`);
+          setToast(`Unlink failed: ${result?.error || "Unknown error"}`, "error");
           return;
         }
         setToast("Existing successor unlinked");
@@ -180,8 +180,7 @@ export default function RenewalWorkflowSection({
                       setToast(
                         ids.length > 1
                           ? `Renewal initiated - one sourcing request with ${ids.length} lines created`
-                          : "Renewal initiated - sourcing record created",
-                        6000
+                          : "Renewal initiated - sourcing record created"
                       );
                     } finally {
                       setInitiatingRenewal(false);
