@@ -17,6 +17,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Added
 
+- License Details has copy buttons next to the LT reference, external
+  reference, PO number, contract number and invoice numbers, and a "Copy link"
+  button for the address of the license. A short message confirms each copy.
 - `python -m app.upgrade` upgrades the database as a separate step, taking the
   same pre-upgrade snapshot as startup. Set `RUN_MIGRATIONS_ON_STARTUP=false`
   to stop the app from upgrading at startup; it then refuses to start until the
