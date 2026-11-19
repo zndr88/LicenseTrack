@@ -14,6 +14,8 @@ export function useAppNavigation({ currentUser, setUserSettings }) {
   const [highlightSourcingId, setHighlightSourcingId] = useState(null);
   const [highlightPendingOrderId, setHighlightPendingOrderId] = useState(null);
   const settingsNavGuardRef = useRef(null);
+  const leaveGuardRef = useRef(null);
+  const pageRef = useRef(page);
   const swimlanesWereVisible = useRef(false);
   const statsVisibleRef = useRef(statsVisible);
   const selectedIdRef = useRef(selectedId);
@@ -28,7 +30,21 @@ export function useAppNavigation({ currentUser, setUserSettings }) {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  // An open License Details edit registers a guard here. When it holds unsaved
+  // changes it keeps `proceed`, asks the user, and returns true; `proceed` then
+  // runs only after the user chooses to discard.
+  const interceptLeave = useCallback((proceed) => leaveGuardRef.current?.(proceed) === true, []);
+
+  const handleRegisterLeaveGuard = useCallback((fn) => {
+    leaveGuardRef.current = fn;
+  }, []);
+
   const handleSetSelectedId = useCallback((licenseId) => {
+    if (licenseId !== selectedIdRef.current && interceptLeave(() => handleSetSelectedId(licenseId))) return;
     if (licenseId == null) {
       if (swimlanesWereVisible.current) {
         setStatsVisible(true);
@@ -43,15 +59,16 @@ export function useAppNavigation({ currentUser, setUserSettings }) {
       setStatsVisible(false);
     }
     setSelectedId(licenseId);
-  }, []);
+  }, [interceptLeave]);
 
   const handleSetPage = useCallback((newPage) => {
+    if (newPage !== pageRef.current && interceptLeave(() => handleSetPage(newPage))) return;
     if (settingsNavGuardRef.current) {
       settingsNavGuardRef.current(newPage);
     } else {
       setPage(newPage);
     }
-  }, []);
+  }, [interceptLeave]);
 
   const handleRegisterNavGuard = useCallback((fn) => {
     settingsNavGuardRef.current = fn;
@@ -100,6 +117,8 @@ export function useAppNavigation({ currentUser, setUserSettings }) {
     setPage,
     handleSetPage,
     handleRegisterNavGuard,
+    interceptLeave,
+    handleRegisterLeaveGuard,
     confirmData,
     setConfirmData,
     selectedId,
