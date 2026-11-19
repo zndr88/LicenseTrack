@@ -46,7 +46,7 @@ async def set_planned_successors(
     target_ids = set(predecessor_item_ids)
     if successor_item_id is not None:
         target_ids.add(successor_item_id)
-    result = await db.execute(select(SourcingItem).where(SourcingItem.id.in_(target_ids)).with_for_update())
+    result = await db.execute(select(SourcingItem).where(SourcingItem.id.in_(target_ids)).with_for_update(of=SourcingItem))
     selected = {item.id: item for item in result.scalars().all()}
     if set(selected) != target_ids:
         raise HTTPException(status_code=404, detail="A selected sourcing line was not found")

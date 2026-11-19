@@ -344,7 +344,7 @@ async def link_existing_successor(
         select(License)
         .where(License.id.in_([predecessor_id, successor_id]))
         .order_by(License.id)
-        .with_for_update()
+        .with_for_update(of=License)
     )
     licenses = {license_obj.id: license_obj for license_obj in result.scalars().all()}
     predecessor = licenses.get(predecessor_id)
@@ -415,7 +415,7 @@ async def unlink_existing_successor(
 ) -> ExistingSuccessorLinkResult:
     """Undo an existing-purchase link without touching ordinary renewal chains."""
     predecessor_result = await db.execute(
-        select(License).where(License.id == predecessor_id).with_for_update()
+        select(License).where(License.id == predecessor_id).with_for_update(of=License)
     )
     predecessor = predecessor_result.scalar_one_or_none()
     if predecessor is None:
@@ -424,7 +424,7 @@ async def unlink_existing_successor(
         raise HTTPException(status_code=409, detail="This license has no linked existing successor")
 
     successor_result = await db.execute(
-        select(License).where(License.id == predecessor.renewed_to_id).with_for_update()
+        select(License).where(License.id == predecessor.renewed_to_id).with_for_update(of=License)
     )
     successor = successor_result.scalar_one_or_none()
     if successor is None:
@@ -552,7 +552,7 @@ async def initiate_renewal_bundle(
     if len(ordered_ids) < 2:
         raise HTTPException(status_code=400, detail="At least two license IDs are required for a renewal bundle")
 
-    result = await db.execute(select(License).where(License.id.in_(ordered_ids)).with_for_update())
+    result = await db.execute(select(License).where(License.id.in_(ordered_ids)).with_for_update(of=License))
     by_id = {license_obj.id: license_obj for license_obj in result.scalars().all()}
     missing = [license_id for license_id in ordered_ids if license_id not in by_id]
     if missing:
@@ -733,7 +733,7 @@ async def create_renewal_successor_from_sourcing_item(
     old_result = await db.execute(
         select(License)
         .where(License.id == sourcing_item.renewal_for_license_id)
-        .with_for_update()
+        .with_for_update(of=License)
     )
     old_lic = old_result.scalar_one_or_none()
     if old_lic is None:
