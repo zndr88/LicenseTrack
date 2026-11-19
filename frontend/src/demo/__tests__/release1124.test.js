@@ -371,5 +371,12 @@ describe("demo parity with 1.1.24", () => {
       const retyped = await demoRequest("/api/licenses/2/field", { method: "PATCH", body: json({ field: "licenseType", value: "oem" }) });
       expect(retyped.data.endDate).toBeNull();
     });
+
+    it("refuses to change a license into Other, which needs a type description", async () => {
+      const before = store.licenses.find((license) => license.id === 2).licenseType;
+      const retyped = await demoRequest("/api/licenses/2/field", { method: "PATCH", body: json({ field: "licenseType", value: "other" }) });
+      expect(retyped.error).toMatch(/use Edit and add a type description/);
+      expect(store.licenses.find((license) => license.id === 2).licenseType).toBe(before);
+    });
   });
 });

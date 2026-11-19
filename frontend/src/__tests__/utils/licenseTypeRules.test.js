@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  INLINE_LICENSE_TYPE_HINT,
+  inlineLicenseTypeOptions,
   isNonExpiringLicenseType,
   isRenewableLicense,
   renewableLabel,
@@ -106,5 +108,26 @@ describe("planned term chains", () => {
 
     const draft = nextTermDraft({ id: 4, licenseType: "maintenance", startDate: "2026-01-01", endDate: "2026-12-31", maintenanceParentLicenseId: 9 });
     expect(draft).toMatchObject({ licenseType: "maintenance", startDate: "2027-01-01", endDate: "2027-12-31", maintenanceParentLicenseId: 9 });
+  });
+});
+
+describe("inline License Type choices", () => {
+  const values = (currentType) => inlineLicenseTypeOptions(currentType).map((option) => option.value);
+
+  test("does not offer Other, which needs a type description from the full edit form", () => {
+    expect(values("subscription")).not.toContain("other");
+    expect(values("subscription")).not.toContain("maintenance");
+    expect(values("subscription")).toContain("perpetual");
+  });
+
+  test("keeps the current type in the list", () => {
+    expect(values("other")).toContain("other");
+    expect(values("other")).not.toContain("maintenance");
+    expect(values("maintenance")).toContain("maintenance");
+    expect(values("maintenance")).not.toContain("other");
+  });
+
+  test("the hint says where to make those changes", () => {
+    expect(INLINE_LICENSE_TYPE_HINT).toMatch(/Maintenance or Other, use Edit/);
   });
 });

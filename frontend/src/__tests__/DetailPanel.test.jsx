@@ -1987,14 +1987,15 @@ describe('DetailPanel full edit form', () => {
     expect(screen.getByText(/has active maintenance of its own; unlink it before changing the type to Maintenance/)).toBeInTheDocument()
   })
 
-  it('does not offer Maintenance in the inline license type edit, and says where to do it', async () => {
+  it('does not offer Maintenance or Other in the inline license type edit, and says where to do it', async () => {
     const user = userEvent.setup()
     render(<DetailPanel {...baseProps} user={{ id: 2, role: 'admin' }} />)
 
     await user.click(await screen.findByRole('button', { name: /edit license type/i }))
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).queryByRole('option', { name: 'Maintenance' })).not.toBeInTheDocument()
-    expect(within(dialog).getByText(/use Edit and choose the license it covers/i)).toBeInTheDocument()
+    expect(within(dialog).queryByRole('option', { name: 'Other' })).not.toBeInTheDocument()
+    expect(within(dialog).getByText(/To change a license into Maintenance or Other, use Edit/i)).toBeInTheDocument()
   })
 
   const perpetualLicense = { ...baseLicense, licenseType: 'perpetual', endDate: '', maintenanceCoverage: 'unknown' }
