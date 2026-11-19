@@ -23,6 +23,7 @@ import SecondaryContactsModal from "./SecondaryContactsModal.jsx";
 import ExistingSuccessorModal from "./ExistingSuccessorModal.jsx";
 import Icon from "../ui/Icon.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import MessageBanner from "../ui/MessageBanner.jsx";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
 import { supportsMaintenanceCoverage } from "../../utils/maintenanceCoverage.js";
 
@@ -38,17 +39,6 @@ function DetailPanelHeader({ canEdit, editingLicense, onStartEdit, onClose }) {
         )}
         <button className="modal-close" aria-label="Close" onClick={onClose}><Icon name="x" size={18} /></button>
       </div>
-    </div>
-  );
-}
-
-function DetailToast({ toast, onClose }) {
-  if (!toast) return null;
-  return (
-    <div className="dp-toast">
-      <Icon name="check" size={14} color="var(--green-text)" />
-      <span style={{ flex: 1 }}>{toast}</span>
-      <button onClick={onClose} className="dp-toast-close" aria-label="Close"><Icon name="x" size={12} /></button>
     </div>
   );
 }
@@ -110,7 +100,7 @@ export default function DetailPanel({ license, userSettings, globalSettings, use
       {/* Scrollable body */}
       <div className="dp-sections">
 
-        <DetailToast toast={toast} onClose={() => setToast(null)} />
+        <MessageBanner message={toast} onDismiss={() => setToast(null)} />
 
         {editingLicense ? (
           <LicenseEditForm
