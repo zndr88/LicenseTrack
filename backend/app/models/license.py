@@ -59,16 +59,16 @@ class License(Base):
         ),
         CheckConstraint(
             "(license_type = 'maintenance' AND parent_license_id IS NOT NULL "
-            "AND is_legacy_unlinked_maintenance = 0) "
+            "AND is_legacy_unlinked_maintenance = false) "
             "OR (license_type = 'maintenance' AND parent_license_id IS NULL "
-            "AND (is_legacy_unlinked_maintenance = 1 OR is_retired = 1)) "
+            "AND (is_legacy_unlinked_maintenance = true OR is_retired = true)) "
             "OR (license_type != 'maintenance' AND parent_license_id IS NULL "
-            "AND is_legacy_unlinked_maintenance = 0)",
+            "AND is_legacy_unlinked_maintenance = false)",
             name="ck_license_maintenance_has_parent",
         ),
         CheckConstraint(
-            "(has_maintenance = 1 AND active_maintenance_id IS NOT NULL) "
-            "OR (has_maintenance = 0 AND active_maintenance_id IS NULL)",
+            "(has_maintenance = true AND active_maintenance_id IS NOT NULL) "
+            "OR (has_maintenance = false AND active_maintenance_id IS NULL)",
             name="ck_license_maintenance_link_consistency",
         ),
     )
