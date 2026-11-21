@@ -10,6 +10,7 @@ import { getContracts, createContract, deleteContract } from "../../api/contract
 import { queryKeys } from "../../queryKeys.js";
 import { invalidateContracts } from "../../queryInvalidation.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
+import LoadError from "../ui/LoadError.jsx";
 
 async function fetchContractsData() {
   const { data, error } = await getContracts();
@@ -188,16 +189,12 @@ export default function ContractsPage({
   onClearOpenContractId,
 }) {
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: queryKeys.contracts,
     queryFn: fetchContractsData,
   });
   const contracts = data ?? EMPTY_CONTRACTS;
   const contractsLoading = isLoading;
-
-  useEffect(() => {
-    if (error) showError?.(error.message);
-  }, [error, showError]);
 
   const [selectedContractId, setSelectedContractId] = useState(null);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -234,11 +231,14 @@ export default function ContractsPage({
       </div>
 
       <div className="page-content">
+        {error && !contractsLoading && (
+          <LoadError message={error.message} onRetry={() => refetch()} />
+        )}
         {contractsLoading ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-3)" }}>
             Loading contracts...
           </div>
-        ) : contracts.length === 0 ? (
+        ) : error && contracts.length === 0 ? null : contracts.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-3)", fontSize: 14 }}>
             <Icon name="file" size={32} color="var(--border)" />
             <p style={{ marginTop: 12 }}>
