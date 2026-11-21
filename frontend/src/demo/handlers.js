@@ -32,7 +32,7 @@ import {
   filterLicenses, getBudgetForecast, getCostOverview, getLifecycleCounts,
   getSpendByPublisher, getPortfolioBreakdown, getRenewalCalendar, getVendorTable,
   getPurchaseOrderReport, getPerpetualMaintenanceReport,
-} from "../utils/reportHelpers.js";
+} from "./reportHelpers.js";
 
 function buildDemoDetailedReport(query) {
   const dateRange = query.get("date_range") || "all";
