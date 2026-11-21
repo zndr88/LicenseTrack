@@ -98,6 +98,12 @@ contracts will be called out under a **Breaking** heading in future releases.
   sidebar. The text shown while a page loads is styled, the Notifications
   intro no longer starts with "In production", and the settings **Daily Send
   Time** and **Daily Database Backup Hour** now say they are in UTC.
+- Operator documentation and the Help Center now say that `JWT_SECRET` also
+  protects the stored SMTP password, OIDC client secret, webhook signing secrets
+  and API tokens, what to redo after changing it, and that it belongs with the
+  backups. They also state that the notification and backup hours are UTC,
+  that a missed scheduled run is caught up after a restart, and that restore by
+  upload is limited by `MAX_UPLOAD_SIZE_MB`.
 
 ## [1.2.1] - 2026-10-29
 
