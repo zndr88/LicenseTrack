@@ -39,6 +39,8 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Changed
 
+- The Contracts page has a search box (contract number, publisher and notes)
+  and a sort control: publisher, contract number, newest first or oldest first.
 - License Details remembers which sections you leave open and opens the
   next license the same way. This is kept per user in the browser; a link to
   a section still opens that section.
