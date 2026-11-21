@@ -81,6 +81,12 @@ contracts will be called out under a **Breaking** heading in future releases.
   pencil no longer offers Other, its hint points to Edit, and the API rejects
   the change with a clear message. An existing Other license can still be
   changed to another type this way.
+- Operator documentation and the Help Center now say that `JWT_SECRET` also
+  protects the stored SMTP password, OIDC client secret, webhook signing secrets
+  and API tokens, what to redo after changing it, and that it belongs with the
+  backups. They also state that the notification and backup hours are UTC,
+  that a missed scheduled run is caught up after a restart, and that restore by
+  upload is limited by `MAX_UPLOAD_SIZE_MB`.
 
 ## [1.2.1] - 2026-10-29
 
