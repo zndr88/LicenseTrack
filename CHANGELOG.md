@@ -44,9 +44,19 @@ contracts will be called out under a **Breaking** heading in future releases.
 - PO numbers are now matched through a stored, normalized copy of the PO number
   instead of a database function. Matching rules are unchanged. Existing
   databases are updated automatically on upgrade.
+- An error on one page no longer replaces the whole app. The page shows the
+  message, with "Try again", and the sidebar and top bar keep working. When a
+  browser tab was left open across an upgrade and a page can no longer be
+  loaded, it says "A new version is available" with a Reload button. An
+  extension button that fails to display is left out instead of breaking its
+  page.
 
 ### Fixed
 
+- When the list on Sourcing, Pending Orders or Contracts could not be loaded,
+  the page showed a brief error and then its "nothing here yet" message, as if
+  there were no data. These pages now show the error with a Retry button
+  instead, the same way Licenses, Renewals and Notifications do.
 - Selecting another license while the License Details edit form was open kept
   the form open, and saving then wrote the first license's values onto the
   other license. The edit form now belongs to the license it was opened for,

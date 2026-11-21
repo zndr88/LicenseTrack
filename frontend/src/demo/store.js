@@ -259,6 +259,36 @@ function lineTotal(license) {
   return parseDecimal(license.quantity) * parseDecimal(license.unitPrice);
 }
 
+const STORED_MONEY = /^-?\d+(\.\d+)?$/;
+
+/**
+ * A stored amount as a number: null when blank, undefined when it is not a
+ * plain decimal string. Mirrors backend/app/services/money.py::parse_money,
+ * with undefined standing in for MoneyParseError.
+ */
+function parseStoredMoney(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const text = String(value).trim();
+  return STORED_MONEY.test(text) ? Number(text) : undefined;
+}
+
+/**
+ * Annualized recurring line cost, or null when a stored amount is not a plain
+ * decimal. Mirrors backend/app/services/license_service.py::calc_recurring_annual_cost.
+ */
+function recurringAnnualCost(license) {
+  const quantity = parseStoredMoney(license.quantity);
+  const unitPrice = parseStoredMoney(license.unitPrice);
+  if (quantity === undefined || unitPrice === undefined) return null;
+  return annualizeTermCost((quantity ?? 0) * (unitPrice ?? 0), license.startDate, license.endDate);
+}
+
+/** Mirrors backend/app/services/license_service.py::_has_paid_included_support. */
+function hasPaidIncludedSupport(license) {
+  if (license.maintenanceCoverage !== "included") return false;
+  return (parseStoredMoney(license.maintenanceCost) ?? 0) > 0;
+}
+
 /**
  * Mirrors backend/app/services/po_total_override_service.py
  * count_po_overrides_not_in_annual: annual-cost views are line based, so a
@@ -291,9 +321,12 @@ export function countPoOverridesNotInAnnual(included, allLicenses) {
  * 2026-09-24 against 1.1.24) - counts by expirationStatus, incompleteness, and
  * annualized line cost (quantity x unitPrice; terms longer than one year scaled
  * to 365 days) grouped by currency for active/expiring/perpetual recurring
- * licenses (subscription, SaaS, maintenance, renewable Service/Other).
- * po_overrides_not_in_annual counts manual PO totals that line-based annual
- * cost does not reflect.
+ * licenses (subscription, SaaS, maintenance, renewable Service/Other), plus the
+ * annualized cost of paid included maintenance on perpetual, OEM and freeware
+ * licenses while that maintenance term is current. A record whose stored
+ * amounts are not plain decimals is left out and counted in
+ * excluded_from_totals. po_overrides_not_in_annual counts manual PO totals
+ * that line-based annual cost does not reflect.
  *
  * pending_renewal is a workflow state on lifecycleStatus, not an expiration
  * status, so total_pending is counted from lifecycleStatus independently of the
@@ -314,6 +347,7 @@ export function computeStats() {
   let totalLegacy = 0;
   const annualCostByCurrency = {};
   const annualCostLicenses = [];
+  let excludedFromTotals = 0;
   // Mirrors license_service._workflow_bucket: an open renewal wins over a
   // scheduled retirement, so each license lands in one bucket.
   const breakdowns = {
@@ -354,13 +388,28 @@ export function computeStats() {
     }
 
     if (["active", "perpetual", "expiring"].includes(status)) {
+      const cur = lic.currency || "EUR";
       if (isRecurringLicense(lic)) {
-        const annualCost = annualizeTermCost(lineTotal(lic), lic.startDate, lic.endDate);
-        const cur = lic.currency || "EUR";
-        annualCostByCurrency[cur] = (annualCostByCurrency[cur] || 0) + annualCost;
-        annualCostLicenses.push(lic);
+        const annualCost = recurringAnnualCost(lic);
+        if (annualCost === null) {
+          excludedFromTotals++;
+        } else {
+          annualCostByCurrency[cur] = (annualCostByCurrency[cur] || 0) + annualCost;
+          annualCostLicenses.push(lic);
+        }
+      } else if (
+        INCLUDED_SUPPORT_PARENT_TYPES.has(lic.licenseType)
+        && hasPaidIncludedSupport(lic)
+        && (!lic.maintenanceStartDate || daysUntil(lic.maintenanceStartDate) <= 0)
+        && (!lic.maintenanceEndDate || daysUntil(lic.maintenanceEndDate) >= 0)
+      ) {
+        const supportCost = annualizeTermCost(
+          parseStoredMoney(lic.maintenanceCost) ?? 0, lic.maintenanceStartDate, lic.maintenanceEndDate,
+        );
+        annualCostByCurrency[cur] = (annualCostByCurrency[cur] || 0) + supportCost;
       }
-      // Perpetual, OEM, Freeware and one-off Service/Other contribute zero - same as backend.
+      // The purchase price of perpetual and OEM licenses, freeware and one-off
+      // Service/Other contribute zero - same as backend.
     }
   }
 
@@ -379,7 +428,7 @@ export function computeStats() {
     total_renewed: totalRenewed,
     total_legacy: totalLegacy,
     annual_cost_by_currency: annualCostByCurrency,
-    excluded_from_totals: 0,
+    excluded_from_totals: excludedFromTotals,
     po_overrides_not_in_annual: countPoOverridesNotInAnnual(annualCostLicenses, licenses),
   };
 }
