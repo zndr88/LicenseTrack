@@ -1,8 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { invokePluginAction, listPluginActions } from "../../api/pluginActions.js";
+import ErrorBoundary from "../ErrorBoundary.jsx";
 import Icon from "../ui/Icon.jsx";
 
-export default function PluginSlot({ slot, context, onResult, onActionsLoaded }) {
+const renderNothing = () => null;
+
+// An extension slot that fails to render is left empty instead of taking the
+// surrounding page down. The key clears the error when the slot's target changes.
+export default function PluginSlot(props) {
+  const { slot, context } = props;
+  return (
+    <ErrorBoundary
+      key={`${slot}:${context?.targetType}:${context?.targetId}`}
+      label="PluginSlot"
+      fallback={renderNothing}
+    >
+      <PluginSlotContent {...props} />
+    </ErrorBoundary>
+  );
+}
+
+function PluginSlotContent({ slot, context, onResult, onActionsLoaded }) {
   const [actions, setActions] = useState([]);
   const [busyKey, setBusyKey] = useState(null);
   const [result, setResult] = useState(null);

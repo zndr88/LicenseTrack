@@ -39,6 +39,12 @@ contracts will be called out under a **Breaking** heading in future releases.
 - PO numbers are now matched through a stored, normalized copy of the PO number
   instead of a database function. Matching rules are unchanged. Existing
   databases are updated automatically on upgrade.
+- An error on one page no longer replaces the whole app. The page shows the
+  message, with "Try again", and the sidebar and top bar keep working. When a
+  browser tab was left open across an upgrade and a page can no longer be
+  loaded, it says "A new version is available" with a Reload button. An
+  extension button that fails to display is left out instead of breaking its
+  page.
 
 ### Fixed
 
