@@ -1174,10 +1174,9 @@ describe("ContractsPage workflows", () => {
     expect(await screen.findByText(/No contracts yet/i)).toBeInTheDocument();
     cleanup();
 
-    const showError = vi.fn();
     contractsApi.getContracts.mockResolvedValueOnce({ data: null, error: "Contracts failed" });
-    wrapWithQueryClient(<ContractsPage user={admin} userSettings={userSettings} showError={showError} />);
-    await waitFor(() => expect(showError).toHaveBeenCalledWith("Contracts failed"));
+    wrapWithQueryClient(<ContractsPage user={admin} userSettings={userSettings} showError={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Contracts failed");
     cleanup();
 
     contractsApi.getContracts.mockResolvedValue({
@@ -1187,6 +1186,22 @@ describe("ContractsPage workflows", () => {
     wrapWithQueryClient(<ContractsPage user={admin} userSettings={userSettings} showError={vi.fn()} />);
     await userEvent.click(await screen.findByRole("button", { name: /Open contract CN-4/i }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Contract 4 opened");
+  });
+
+  test("shows the load error with Retry instead of the empty state", async () => {
+    contractsApi.getContracts
+      .mockResolvedValueOnce({ data: null, error: "Contracts failed" })
+      .mockResolvedValueOnce({
+        data: [{ id: 4, publisherName: "Acme", contractNumber: "CN-4", licenseCount: 1, documentCount: 0, createdAt: "2026-01-01T00:00:00Z" }],
+        error: null,
+      });
+    wrapWithQueryClient(<ContractsPage user={admin} userSettings={userSettings} showError={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Contracts failed");
+    expect(screen.queryByText(/No contracts yet/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("button", { name: /Open contract CN-4/i })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   test("keeps the contract delete control isolated from tile activation", async () => {
@@ -1372,6 +1387,25 @@ describe("SourcingPage workflows", () => {
     await user.click(screen.getByRole("button", { name: /Add Request/i }));
     await user.click(screen.getByRole("button", { name: /Save sourcing item/i }));
     expect(await screen.findByText("Created Sourcing App")).toBeInTheDocument();
+  });
+
+  test("shows the load error with Retry instead of the empty state", async () => {
+    sourcingApi.getSourcingRequests
+      .mockResolvedValueOnce({ data: null, error: "Sourcing failed" })
+      .mockResolvedValueOnce({
+        data: [{
+          id: 1, supplier: "Acme Supplier", contactEmail: null, createdAt: "2026-01-01T00:00:00Z", quoteDocuments: [],
+          items: [{ id: 10, publisherName: "Acme", softwareDescription: "Acme Trial", quantity: "5", currency: "EUR", isRenewal: false }],
+        }],
+        error: null,
+      });
+    wrapWithQueryClient(<SourcingPage user={admin} userSettings={userSettings} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sourcing failed");
+    expect(screen.queryByText(/No sourcing requests yet/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Acme Supplier")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   test("starts sourcing requests collapsed and expands them independently", async () => {
@@ -2306,6 +2340,25 @@ describe("SourcingPage workflows", () => {
 });
 
 describe("PendingOrdersPage workflows", () => {
+  test("shows the load error with Retry instead of the empty state", async () => {
+    pendingOrdersApi.getPendingOrders
+      .mockResolvedValueOnce({ data: null, error: "Pending orders failed" })
+      .mockResolvedValueOnce({
+        data: [{
+          id: 99, poNumber: "PO-99", status: "pending", documents: [],
+          items: [{ id: 1, publisherName: "Acme", softwareDescription: "Acme Suite", currency: "EUR", quantity: "1", estimatedTotalPrice: "10" }],
+        }],
+        error: null,
+      });
+    wrapWithQueryClient(<PendingOrdersPage user={admin} userSettings={userSettings} showError={vi.fn()} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Pending orders failed");
+    expect(screen.queryByText(/No pending orders yet/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("PO-99")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   test("offers PO entry instead of disabled conversion and retains mixed currencies", async () => {
     const user = userEvent.setup();
     pendingOrdersApi.getPendingOrders.mockResolvedValue({ data: [{
@@ -2656,7 +2709,7 @@ describe("PendingOrdersPage workflows", () => {
 
     pendingOrdersApi.getPendingOrders.mockResolvedValueOnce({ data: null, error: "PO failed" });
     wrapWithQueryClient(<PendingOrdersPage user={admin} userSettings={userSettings} showError={showError} showSuccess={vi.fn()} />);
-    await waitFor(() => expect(showError).toHaveBeenCalledWith("PO failed"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("PO failed");
     cleanup();
 
     const poOne = { id: 1, poNumber: "PO-1", supplier: "Acme Supplier", status: "pending", items: [], createdAt: "2026-01-01T00:00:00Z" };
