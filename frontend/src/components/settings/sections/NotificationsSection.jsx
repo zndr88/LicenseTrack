@@ -73,7 +73,7 @@ export default function NotificationsSection({ isOpen, isDirty, onToggle, markDi
                 <input id="settings-manager-email" className="fi" value={globalSettings.managerEmail} onChange={(e) => { setGlobalSettings(s => ({ ...s, managerEmail: e.target.value })); markDirty("notifications"); }} />
               </div>
               <div className="fg">
-                <label htmlFor="settings-send-hour">Daily Send Time (hour, 0-23)</label>
+                <label htmlFor="settings-send-hour">Daily Send Time (hour, 0-23, UTC)</label>
                 <input id="settings-send-hour" className="fi" type="number" min="0" max="23" value={globalSettings.notificationSendHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, notificationSendHour: parseIntegerInput(e.target.value) })); markDirty("notifications"); }} />
               </div>
             </div>

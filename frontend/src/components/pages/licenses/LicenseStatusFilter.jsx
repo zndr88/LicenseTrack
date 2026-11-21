@@ -1,20 +1,26 @@
 import { DEFAULT_STATUS_FILTERS } from "../../../constants/licenseData.js";
 
+// `tone` picks the chip colour through the lp-chip-<tone> classes in licenses.css.
 const CHIPS = [
-  { key: "active",          label: "Active",     color: "var(--green)"       },
-  { key: "upcoming",        label: "Upcoming",   color: "var(--steel-text)"  },
-  { key: "expiring",        label: "Expiring",   color: "var(--orange)"      },
-  { key: "expired",         label: "Expired",    color: "var(--red)"         },
-  { key: "pending_renewal", label: "Pending",    color: "var(--purple-text)" },
-  { key: "renewed",         label: "Renewed",    color: "var(--text-3)"      },
-  { key: "retired",         label: "Retired",    color: "var(--text-3)"      },
-  { key: "legacy",          label: "Legacy",     color: "var(--text-3)"      },
+  { key: "active",          label: "Active",              tone: "green"  },
+  { key: "upcoming",        label: "Upcoming",            tone: "steel"  },
+  { key: "expiring",        label: "Expiring",            tone: "orange" },
+  { key: "expired",         label: "Expired",             tone: "red"    },
+  { key: "pending_renewal", label: "Renewal in progress", tone: "purple" },
+  { key: "renewed",         label: "Renewed",             tone: "muted"  },
+  { key: "retired",         label: "Retired",             tone: "muted"  },
+  { key: "legacy",          label: "Legacy",              tone: "muted"  },
   { key: "_sep" },
-  { key: "complete",        label: "Complete",   color: "var(--green)"       },
-  { key: "incomplete",      label: "Incomplete", color: "var(--orange)"      },
+  { key: "complete",        label: "Complete",            tone: "green"  },
+  { key: "incomplete",      label: "Incomplete",          tone: "orange" },
   { key: "_sep_support" },
-  { key: "support_due",     label: "Maintenance due", color: "var(--orange)"     },
+  { key: "support_due",     label: "Maintenance due",     tone: "orange" },
 ];
+
+function isDefaultSelection(statusFilters) {
+  return statusFilters.length === DEFAULT_STATUS_FILTERS.length
+    && DEFAULT_STATUS_FILTERS.every((key) => statusFilters.includes(key));
+}
 
 export default function LicenseStatusFilter({ statusFilters, setStatusFilters, setCurrentPage }) {
   const toggle = (key) => {
@@ -38,22 +44,18 @@ export default function LicenseStatusFilter({ statusFilters, setStatusFilters, s
           return (
             <button
               key={s.key}
+              type="button"
+              className={`lp-chip lp-chip-${s.tone}`}
+              aria-pressed={active}
               onClick={() => toggle(s.key)}
-              style={{
-                padding: "3px 8px", borderRadius: 12, border: "1px solid",
-                borderColor: active ? s.color : "var(--border)",
-                background: active ? `${s.color}18` : "none",
-                color: active ? s.color : "var(--text-3)",
-                fontSize: 10, fontWeight: 600, fontFamily: "var(--sans)",
-                cursor: "pointer", transition: "all .15s",
-              }}
             >
               {s.label}
             </button>
           );
         })}
-        {statusFilters.length > 0 && (
+        {!isDefaultSelection(statusFilters) && (
           <button
+            type="button"
             onClick={() => { setStatusFilters(DEFAULT_STATUS_FILTERS); setCurrentPage(1); }}
             className="lp-chip-remove"
             aria-label="Clear filters"

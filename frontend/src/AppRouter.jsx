@@ -8,6 +8,8 @@ import {
   invalidateNotifications,
   invalidatePortfolioState,
 } from "./queryInvalidation.js";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import PageErrorFallback from "./components/PageErrorFallback.jsx";
 import LicensesPage from "./components/pages/LicensesPage.jsx";
 import { createManualEntryData } from "./constants/licenseData.js";
 
@@ -22,6 +24,8 @@ const AdminPage = lazy(() => import("./components/pages/AdminPage.jsx"));
 const CSVImportPage = lazy(() => import("./components/pages/CSVImportPage.jsx"));
 const ContractsPage = lazy(() => import("./components/pages/ContractsPage.jsx"));
 const HelpPage = lazy(() => import("./components/pages/HelpPage.jsx"));
+
+const renderPageError = (props) => <PageErrorFallback {...props} />;
 
 export default function AppRouter({
   page,
@@ -73,6 +77,8 @@ export default function AppRouter({
 
   return (
     <>
+      {/* Keyed by page: an error on one page is cleared by opening another. */}
+      <ErrorBoundary key={page} label="Page" fallback={renderPageError}>
       <Suspense fallback={<div className="page-loading">Loading...</div>}>
         {page === "licenses" && (
           <LicensesPage
@@ -218,6 +224,7 @@ export default function AppRouter({
           <HelpPage />
         )}
       </Suspense>
+      </ErrorBoundary>
 
       {confirmData && perms.canUpload && (
         <Suspense fallback={null}>

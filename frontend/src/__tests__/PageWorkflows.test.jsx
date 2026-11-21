@@ -501,6 +501,7 @@ describe("LicensesPage workflows", () => {
     licensesApi.getLicenses.mockReturnValueOnce(pending.promise);
     renderLicensesPage();
     expect(await screen.findByText(/Loading licenses/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No licenses found/i)).not.toBeInTheDocument();
     pending.resolve({ data: [], error: null });
     expect(await screen.findByText(/No licenses found/i)).toBeInTheDocument();
     cleanup();
