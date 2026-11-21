@@ -285,6 +285,10 @@ lists and integration changes.
   test retries. Form workflow tests use atomic input changes and wait for
   asynchronous submission; report workflow tests load their sections before
   testing interactions.
+- Frontend unit tests that use no browser API run in the plain Node
+  environment, which shortens the test run by about a third. The CI test step
+  now checks the configured coverage thresholds, and the lint step fails on
+  warnings.
 - API requests with fields an endpoint doesn't define are logged as a warning,
   naming the endpoint and the fields. Set `STRICT_REQUEST_FIELDS=true` to reject
   them with a 422 instead; this may become the default in a later release, so
