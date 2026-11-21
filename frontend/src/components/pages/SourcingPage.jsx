@@ -17,6 +17,7 @@ import CotermSuggestionBanner from "./sourcing/CotermSuggestionBanner.jsx";
 import MergeSourcingModal from "./sourcing/MergeSourcingModal.jsx";
 import SourcingTable, { isDirectFreewareItem } from "./sourcing/SourcingTable.jsx";
 import MessageBanner from "../ui/MessageBanner.jsx";
+import LoadError from "../ui/LoadError.jsx";
 import { useToast } from "../../hooks/useToast.js";
 import { useSourcingActions } from "./sourcing/useSourcingActions.js";
 import { useSourcingMerge } from "./sourcing/useSourcingMerge.js";
@@ -134,6 +135,7 @@ export default function SourcingPage({
     licenses,
     sourcingItems,
     sourcingHistoryRequests,
+    sourcingError,
     sourcingLoading,
     sourcingRequests,
     refetch,
@@ -373,7 +375,11 @@ export default function SourcingPage({
           </div>
         )}
 
-        {!sourcingLoading && sourcingRequests.length === 0 ? (
+        {sourcingError && !sourcingLoading && (
+          <LoadError message={sourcingError} onRetry={() => refetch()} />
+        )}
+
+        {sourcingError && sourcingRequests.length === 0 ? null : !sourcingLoading && sourcingRequests.length === 0 ? (
           <div className="empty">
             <Icon name="search" size={32} color="var(--text-3)" />
             <h3>No sourcing requests yet</h3>

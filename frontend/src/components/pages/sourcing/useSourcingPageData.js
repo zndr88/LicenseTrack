@@ -49,10 +49,6 @@ export function useSourcingPageData({ showToast, includeHistory = false }) {
   const sourcingHistoryRequests = historyData ?? EMPTY_SOURCING;
 
   useEffect(() => {
-    if (queryError) showToast(queryError.message, "error");
-  }, [queryError, showToast]);
-
-  useEffect(() => {
     if (licensesError) showToast(licensesError.message, "error");
   }, [licensesError, showToast]);
 
@@ -64,6 +60,7 @@ export function useSourcingPageData({ showToast, includeHistory = false }) {
     historyLoading,
     licenses,
     refetchHistory,
+    sourcingError: queryError ? queryError.message : null,
     sourcingItems,
     sourcingHistoryRequests,
     sourcingLoading,

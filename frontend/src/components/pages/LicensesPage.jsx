@@ -444,6 +444,7 @@ export default function LicensesPage({
               )}
             <LicenseTable
               filtered={sorted}
+              loading={licensesLoading}
               sorted={sorted}
               paginatedItems={paginatedItems}
               licenses={enriched}
