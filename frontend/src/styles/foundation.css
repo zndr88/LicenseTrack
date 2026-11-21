@@ -194,3 +194,30 @@ body { background: var(--bg-0); color: var(--text-1); font-family: var(--font-sa
   font-size: 0.875rem;
 }
 
+/* Error on a single page, shown inside the app shell */
+.page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50vh;
+  padding: 2rem;
+  text-align: center;
+}
+.page-error-title {
+  color: var(--text-1);
+  font-size: 1.25rem;
+}
+.page-error-copy {
+  max-width: 460px;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.page-error-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
