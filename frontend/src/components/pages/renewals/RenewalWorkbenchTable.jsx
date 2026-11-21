@@ -1,7 +1,9 @@
 import React from "react";
 import { formatCost } from "../../../utils/helpers.js";
+import SortableHeader from "../../ui/SortableHeader.jsx";
 import {
   STATUS_LABELS,
+  WORKBENCH_SORT_COLUMNS,
   STATUS_BADGE_CLASS,
   RISK_CLASS,
   getRiskFlagDisplay,
@@ -207,6 +209,8 @@ export default function RenewalWorkbenchTable({
   onStartRenewal,
   onStartSupportRenewal,
   onRecordSupport,
+  sort = null,
+  onSort,
 }) {
   const cellContext = { startingId, locale, userSettings, canStartRenewal, canOpenPipeline, renewalActionDays, onNavigateToLicense, onNavigateToSourcing, onNavigateToPendingOrder, onStartRenewal, onStartSupportRenewal, onRecordSupport };
 
@@ -216,7 +220,16 @@ export default function RenewalWorkbenchTable({
         <thead>
           <tr>
             {visibleColumns.map((column) => (
-              <th key={column.id}>{column.label}</th>
+              onSort && WORKBENCH_SORT_COLUMNS.has(column.id) ? (
+                <SortableHeader
+                  key={column.id}
+                  column={column.id}
+                  label={column.label}
+                  sortCol={sort?.column}
+                  sortDir={sort?.dir}
+                  onSort={onSort}
+                />
+              ) : <th key={column.id} scope="col">{column.label}</th>
             ))}
           </tr>
         </thead>

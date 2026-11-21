@@ -245,6 +245,9 @@ thead th {
   white-space: nowrap;
   vertical-align: middle;
 }
+.sortable-th { cursor: pointer; user-select: none; }
+.sortable-th:focus-visible { outline-offset: -2px; }
+.sortable-th-indicator { margin-left: 4px; font-size: 10px; color: var(--accent); vertical-align: middle; }
 tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; cursor: pointer; }
 tbody tr:last-child { border-bottom: none; }
 tbody tr:hover { background: var(--bg-2); }
