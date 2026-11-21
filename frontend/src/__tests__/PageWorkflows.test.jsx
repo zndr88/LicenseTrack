@@ -197,7 +197,6 @@ vi.mock("../api/reports.js", () => ({
 }));
 
 vi.mock("../utils/pdfExport.js", () => ({
-  exportFullReportPdf: vi.fn(),
   exportStructuredReportPdf: vi.fn(),
 }));
 
@@ -456,7 +455,6 @@ function setupDefaultApiMocks() {
   usersApi.getUserDepartments.mockResolvedValue({ data: [], error: null });
   settingsApi.updateSettings.mockResolvedValue({ data: {}, error: null });
   settingsApi.updateGlobalSettings.mockResolvedValue({ data: {}, error: null });
-  pdfExport.exportFullReportPdf.mockResolvedValue();
 }
 
 function renderLicensesPage(props = {}) {

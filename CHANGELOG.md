@@ -39,6 +39,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 - PO numbers are now matched through a stored, normalized copy of the PO number
   instead of a database function. Matching rules are unchanged. Existing
   databases are updated automatically on upgrade.
+- Removed the unused screenshot-based PDF export and the direct `html2canvas`
+  dependency; the Reports page already always used the structured PDF export.
+  Also removed style rules that no screen uses any more.
 
 ### Fixed
 
