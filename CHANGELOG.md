@@ -42,6 +42,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Column headers on Sourcing and Pending Orders could only be sorted with the
+  mouse. They can now be reached with Tab and sorted with Enter or Space, and
+  they announce the sort direction to screen readers, like the license table.
 - Selecting another license while the License Details edit form was open kept
   the form open, and saving then wrote the first license's values onto the
   other license. The edit form now belongs to the license it was opened for,
