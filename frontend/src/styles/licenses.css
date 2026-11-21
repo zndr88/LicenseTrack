@@ -181,6 +181,8 @@
 .lp-chip-orange { --chip-color: var(--orange); }
 .lp-chip-red { --chip-color: var(--red); }
 .lp-chip-purple { --chip-color: var(--purple-text); }
+.lp-hidden-matches { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-2); }
+.lp-hidden-matches-show { background: none; border: none; padding: 0; color: var(--accent); font-family: var(--font-sans); font-size: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
 .lp-chip-sep { display: inline-block; width: 1px; height: 14px; background: var(--border-strong); margin-left: 2px; margin-right: 2px; vertical-align: middle; }
 .lp-chip-remove { padding: 5px 8px; border-radius: 12px; border: none; background: none; color: var(--text-3); font-size: 10px; cursor: pointer; margin-left: 2px; }
 .lp-tbl-wrap { overflow-x: auto; min-width: 0; }

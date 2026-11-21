@@ -24,7 +24,11 @@ and creation time.
 
 ### Scheduled database backups
 
-LicenseTrack's background scheduler can run a database backup automatically each day at a configurable hour. The backup hour is set in global settings alongside the notification hour. The scheduler calculates which of the two fires next and sleeps until that time, rather than polling on a fixed interval.
+LicenseTrack's background scheduler can run a database backup automatically each day at a configurable hour. The backup hour is set in global settings alongside the notification hour.
+
+- **The hour is in UTC**, not in the server's or your personal time zone. For example, hour `2` is 02:00 UTC, which is 03:00 Central European Time in winter and 04:00 in summer.
+- The scheduler checks at least once a minute whether a job is due, so the backup starts within about a minute of the configured hour.
+- A missed run is caught up. If LicenseTrack was stopped at the configured hour, the backup runs shortly after the next start, as long as no scheduled backup has been recorded yet for that UTC day. A start before the configured hour simply waits for it.
 
 ### Manual database backups
 
@@ -37,6 +41,14 @@ Admins can restore from either:
 - **This server** - select a validated archive already present in the configured
   backup directory.
 - **This computer** - upload an off-host backup or recovery archive.
+
+An uploaded archive may be at most as large as the upload size limit,
+`MAX_UPLOAD_SIZE_MB` (20 MB unless changed; the same setting limits document
+uploads). A larger file is refused with a "File exceeds the maximum allowed
+size" message. For a larger archive, which is common for recovery archives
+that include documents, copy the file into the configured backup directory on
+the server and restore it with **This server** instead. The upload limit does
+not apply there.
 
 Server selection accepts an exact filename from the validated archive list.
 Arbitrary paths, parent-directory references, symlinks, unlisted files, and
@@ -129,4 +141,5 @@ Admins only.
 - In Docker Compose and native deployment, database restore exits the backend process so the process manager can restart it. The native systemd service uses `Restart=always`, because a successful restore exits cleanly and is not considered a failure by systemd. An explicit `licensetrack stop` remains stopped. For direct local development, leave `RESTART_AFTER_RESTORE=false` to keep the backend running after restore. Users may need to sign in again if their restored database no longer matches the current session.
 - The database backup directory must be writable by the LicenseTrack process. LicenseTrack attempts to create the configured directory, including missing parent directories, when a backup runs. If the process cannot create or write to that path, the backup fails.
 - LicenseTrack verifies the integrity of a newly created database backup zip before returning success. If the zip is corrupt, it is deleted and the database backup is reported as failed.
+- Secrets stored in the database (SMTP password, OIDC client secret, webhook signing secrets) and API tokens only keep working when the server uses the same `JWT_SECRET` as when the backup was made. Keep a copy of it with your backups; see [Keep `JWT_SECRET` with your backups](deployment.md#keep-jwt_secret-with-your-backups).
 - The database backup retention setting must be between 1 and 100. After each backup, older database backup zip files beyond that retention count are pruned automatically.

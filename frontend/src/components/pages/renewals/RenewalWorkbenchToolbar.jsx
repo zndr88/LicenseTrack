@@ -9,6 +9,8 @@ export default function RenewalWorkbenchToolbar({
   optionalColumns,
   savedColumnVisibility,
   onToggleColumn,
+  onExportCsv,
+  exportDisabled = false,
 }) {
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({});
@@ -45,6 +47,18 @@ export default function RenewalWorkbenchToolbar({
       </div>
 
       <div className="lp-row1-right">
+        {onExportCsv && (
+          <button
+            type="button"
+            className="chip rw-column-btn"
+            title="Download the rows and columns shown, in the order shown"
+            disabled={exportDisabled}
+            onClick={onExportCsv}
+          >
+            <Icon name="download" size={14} />
+            Export CSV
+          </button>
+        )}
         <button
           ref={columnsBtnRef}
           type="button"

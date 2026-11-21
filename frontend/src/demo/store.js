@@ -452,14 +452,36 @@ const DOCUMENT_CATEGORIES = {
   purchaseOrder: "purchase_order",
   quote: "quote",
 };
-const FREEWARE_INAPPLICABLE_FIELDS = new Set([
-  "contractNumber",
+// Which required fields apply to a record. Mirrors
+// backend/app/services/license_service.py::_is_applicable_mandatory_field.
+const ENTITLEMENT_DOCUMENT_FIELDS = new Set(["entitlement", "eula"]);
+const NON_ENTITLEMENT_LICENSE_TYPES = new Set(["freeware", "service", "other"]);
+const FREEWARE_ALWAYS_INAPPLICABLE_FIELDS = new Set(["contactEmail", "entitlement", "eula"]);
+const FREEWARE_PURCHASE_FIELDS = new Set([
   "invoice",
   "invoiceNumber",
+  "contractNumber",
   "poNumber",
   "purchaseOrder",
   "quote",
 ]);
+
+function isApplicableMandatoryField(key, license) {
+  if (NON_ENTITLEMENT_LICENSE_TYPES.has(license.licenseType) && ENTITLEMENT_DOCUMENT_FIELDS.has(key)) return false;
+  if (license.licenseType !== "freeware") return true;
+  if (FREEWARE_ALWAYS_INAPPLICABLE_FIELDS.has(key)) return false;
+  // Freeware has purchase details only when its included maintenance is paid for.
+  if (FREEWARE_PURCHASE_FIELDS.has(key)) return hasPaidIncludedSupport(license);
+  return true;
+}
+
+// The server rounds an exact half to the even number (Python's round), so one
+// of eight required fields is 12%, not 13%.
+function roundHalfToEven(value) {
+  const floor = Math.floor(value);
+  if (value - floor !== 0.5) return Math.round(value);
+  return floor % 2 === 0 ? floor : floor + 1;
+}
 
 function hasDocumentCategory(license, category) {
   const documents = license.documents;
@@ -486,17 +508,18 @@ function hasMandatoryField(license, key) {
   return false;
 }
 
+/** Mirrors backend/app/services/license_service.py::compute_completeness. */
 export function computeLicenseCompletenessPct(license) {
   if (license.isCompletenessExempt) return null;
   const mandatoryFields = store.globalSettings.mandatory_fields ?? {};
   const enabledKeys = Object.entries(mandatoryFields)
     .filter(([, enabled]) => enabled)
     .map(([key]) => key)
-    .filter((key) => license.licenseType !== "freeware" || !FREEWARE_INAPPLICABLE_FIELDS.has(key));
+    .filter((key) => isApplicableMandatoryField(key, license));
   if (enabledKeys.length === 0) return 100;
 
   const met = enabledKeys.filter((key) => hasMandatoryField(license, key)).length;
-  return Math.round((met * 100) / enabledKeys.length);
+  return roundHalfToEven((met * 100) / enabledKeys.length);
 }
 
 export function withComputedCompleteness(license) {
@@ -988,7 +1011,7 @@ function sumByCurrency(items) {
   return totals;
 }
 
-/** Mirrors backend/app/schemas/pending_order.py:106-121 PendingOrderResponse._compute_total_po_value. */
+/** Mirrors backend/app/services/pending_order_service.py::pending_order_total. */
 export function computeTotalPoValue(items) {
   const totals = sumByCurrency(items);
   const currencies = Object.keys(totals);
@@ -996,7 +1019,7 @@ export function computeTotalPoValue(items) {
   return currencies.map((cur) => formatCurrency(totals[cur], cur)).join(" + ");
 }
 
-/** Mirrors backend/app/schemas/sourcing.py:178-195 SourcingRequestResponse._compute_total_estimated_value. */
+/** Mirrors backend/app/services/sourcing_service.py::sourcing_request_total. */
 export function computeTotalEstimatedValue(items) {
   const totals = sumByCurrency(items);
   const currencies = Object.keys(totals);
@@ -1771,7 +1794,7 @@ function withSourcingItemLicenseRefs(item) {
 // conversion/{license_converter,pending_order_status}.py
 // (all verified 2026-07-10).
 
-/** Mirrors backend/app/services/pending_order_service.py:213-215 ensure_pending_order_editable. */
+/** Mirrors backend/app/services/pending_order_state.py::ensure_pending_order_editable. */
 export function ensurePendingOrderEditable(order, action = "modify") {
   if (order.status === "converted" || order.status === "cancelled") {
     throw new Error(`Cannot ${action} a ${order.status} order`);

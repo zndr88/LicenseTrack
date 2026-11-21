@@ -16,7 +16,9 @@ import {
   includesSearch,
   getViewCounts,
   isSupportRow,
+  nextWorkbenchSort,
   prioritySortRows,
+  sortWorkbenchRows,
 } from "./renewals/workbenchRules.js";
 import {
   buildWorkbenchColumns,
@@ -24,6 +26,7 @@ import {
 } from "./renewals/workbenchColumns.js";
 import RenewalWorkbenchTable from "./renewals/RenewalWorkbenchTable.jsx";
 import RenewalWorkbenchToolbar from "./renewals/RenewalWorkbenchToolbar.jsx";
+import { exportWorkbenchCsv } from "./renewals/exportWorkbenchCsv.js";
 import { getRenewalActionDays, getRenewalBundleMembers } from "../../utils/renewalBundle.js";
 
 const EMPTY_ROWS = [];
@@ -51,6 +54,8 @@ export default function RenewalWorkbenchPage({
   const [view, setView] = useState("all");
   const [search, setSearch] = useState("");
   const [startingId, setStartingId] = useState(null);
+  // null keeps the priority order; a header click sets { column, dir }.
+  const [sort, setSort] = useState(null);
 
   const qAll = useQuery({
     queryKey: [...queryKeys.renewals, "all"],
@@ -86,8 +91,8 @@ export default function RenewalWorkbenchPage({
   );
 
   const visibleRows = useMemo(
-    () => prioritySortRows(rows.filter((row) => includesSearch(row, search))),
-    [rows, search],
+    () => sortWorkbenchRows(prioritySortRows(rows.filter((row) => includesSearch(row, search))), sort),
+    [rows, search, sort],
   );
 
   const bundleCandidates = useMemo(
@@ -235,6 +240,8 @@ export default function RenewalWorkbenchPage({
               optionalColumns={optionalColumns}
               savedColumnVisibility={savedColumnVisibility}
               onToggleColumn={handleToggleColumn}
+              onExportCsv={() => exportWorkbenchCsv(visibleRows, visibleColumns)}
+              exportDisabled={loading || Boolean(error) || visibleRows.length === 0}
             />
 
             <div className="lp-status-bar">
@@ -300,6 +307,8 @@ export default function RenewalWorkbenchPage({
                 onStartRenewal={handleStartRenewal}
                 onStartSupportRenewal={handleStartSupportRenewal}
                 onRecordSupport={handleRecordSupport}
+                sort={sort}
+                onSort={(columnId) => setSort((current) => nextWorkbenchSort(current, columnId))}
               />
             )}
           </div>
