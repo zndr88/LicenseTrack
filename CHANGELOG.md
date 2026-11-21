@@ -42,6 +42,11 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- "Add to existing PO" in the sourcing conversion dialog could list an order
+  that was already converted, and the Pending Orders page could briefly miss
+  its rows that need a document-transfer retry, depending on which screen had
+  loaded the pending orders last. The two lists are now kept apart, so the
+  dialog only offers open pending orders.
 - Selecting another license while the License Details edit form was open kept
   the form open, and saving then wrote the first license's values onto the
   other license. The edit form now belongs to the license it was opened for,

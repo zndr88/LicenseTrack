@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getContracts } from "../../../api/contracts.js";
-import { getLicenses, getStats } from "../../../api/licenses.js";
-import { getPendingOrders } from "../../../api/pendingOrders.js";
+import { getLicenses } from "../../../api/licenses.js";
 import { getSourcingItems } from "../../../api/sourcing.js";
 import { queryKeys } from "../../../queryKeys.js";
+import { fetchLicenseStats, fetchPendingOrders } from "../../../queryFns.js";
 import { fetchCustomFieldDefinitions } from "../../../hooks/useCustomFieldDefinitions.js";
 import { normalizeLicense } from "../../../utils/helpers.js";
 import {
@@ -26,20 +26,8 @@ export async function fetchLicensesData() {
   return { licenses: normalized, customFieldValuesMap: valMap };
 }
 
-async function fetchLicenseStats() {
-  const { data, error } = await getStats();
-  if (error) throw new Error(error);
-  return data ?? null;
-}
-
 async function fetchSourcingItems() {
   const { data, error } = await getSourcingItems();
-  if (error) throw new Error(error);
-  return data ?? EMPTY_ARRAY;
-}
-
-async function fetchPendingOrders() {
-  const { data, error } = await getPendingOrders();
   if (error) throw new Error(error);
   return data ?? EMPTY_ARRAY;
 }
