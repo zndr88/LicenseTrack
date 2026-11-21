@@ -101,8 +101,12 @@ Switching the license to a separately tracked maintenance record ends them.
 One-off Service and Other records (not marked **Renewable?**) never raise
 expiring or expired alerts. A daily job retires them after their end date.
 
-Notification and daily database-backup hours use the full `0..23` range. Hour
-`0` is midnight and is preserved as entered. Blank, non-numeric, and
+Notification and daily database-backup hours use the full `0..23` range and
+are in UTC, not in the server's or your personal time zone. Hour `0` is
+midnight UTC and is preserved as entered. Convert from your local time when
+choosing the hour: 07:00 Central European Time is hour `6` in winter and hour
+`5` in summer. A run starts within about a minute of the hour, and a run
+missed because LicenseTrack was stopped is caught up after the next start. Blank, non-numeric, and
 out-of-range values fail validation instead of silently becoming a default
 hour.
 
@@ -150,6 +154,9 @@ future notice alerts until the notice date is changed.
 Configure SMTP host, port, sender name/address, username, password, encryption
 mode, and the **Enable Email Notifications** switch inside Admin Settings.
 Credentials are encrypted at rest and returned to the browser as masked values.
+The encryption depends on the server's `JWT_SECRET`: if that value changes,
+the SMTP password and the OIDC client secret must be entered again. See
+[Keep `JWT_SECRET` with your backups](../operations/deployment.md#keep-jwt_secret-with-your-backups).
 
 - **Send test email** validates SMTP by sending one message to the manager
   address.

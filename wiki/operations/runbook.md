@@ -66,6 +66,9 @@ Minimum recommended checks:
 - Copy database backups or full-volume snapshots off host.
 - Test restore in a non-production environment before go-live and after material upgrade changes.
 - Include uploaded document storage in disaster-recovery testing.
+- Keep a copy of `JWT_SECRET` with the backups. Without the same value, a
+  restored database loses its stored SMTP, OIDC and webhook secrets and its API
+  tokens; see [Keep `JWT_SECRET` with your backups](deployment.md#keep-jwt_secret-with-your-backups).
 
 See [Backup & restore](backup-restore.md) and the [Deployment guide](deployment.md) for database backup behavior and full-volume backup examples.
 
@@ -134,6 +137,19 @@ After upgrading:
 **For suspected credential compromise:**
 
 - Rotate `JWT_SECRET` and other affected credentials according to local policy.
+  Changing `JWT_SECRET` has side effects beyond signing everyone out, so plan
+  the follow-up work before you change it:
+    - enter the SMTP password and the OIDC client secret again in
+      **Admin > Settings** (keep a local admin account available, because OIDC
+      sign-in does not work until then);
+    - revoke the existing API tokens, create new ones, and update the systems
+      that use them;
+    - delete and re-create each webhook endpoint and give the receiver its new
+      signing secret;
+    - enter secret settings of Official Extensions again; and
+    - store the new value with your backups.
+
+    See [Keep `JWT_SECRET` with your backups](deployment.md#keep-jwt_secret-with-your-backups).
 - Review users, roles, OIDC settings, SMTP settings, and audit logs.
 - Invalidate active access by restarting after secret rotation and requiring affected users to reauthenticate.
 - Preserve logs and audit exports for investigation.
