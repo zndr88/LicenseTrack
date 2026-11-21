@@ -66,6 +66,11 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- "Add to existing PO" in the sourcing conversion dialog could list an order
+  that was already converted, and the Pending Orders page could briefly miss
+  its rows that need a document-transfer retry, depending on which screen had
+  loaded the pending orders last. The two lists are now kept apart, so the
+  dialog only offers open pending orders.
 - Column headers on Sourcing and Pending Orders could only be sorted with the
   mouse. They can now be reached with Tab and sorted with Enter or Space, and
   they announce the sort direction to screen readers, like the license table.

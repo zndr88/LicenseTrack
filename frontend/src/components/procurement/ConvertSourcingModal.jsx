@@ -3,7 +3,6 @@ import { Controller, useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { getPendingOrders } from "../../api/pendingOrders.js";
 import { poFormSchema } from "../../utils/procurementSchemas.js";
 import { useModalGuard } from "../../hooks/useModalGuard.js";
 import DiscardChangesDialog from "../ui/DiscardChangesDialog.jsx";
@@ -12,16 +11,11 @@ import LicenseFormSection from "../licenses/LicenseFormSection.jsx";
 import { pendingOrderOptionLabel } from "../../utils/procurementLabels.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import { queryKeys } from "../../queryKeys.js";
+import { fetchPendingOrders } from "../../queryFns.js";
 
 const sourcingPoFormSchema = poFormSchema.extend({
   supplier: z.string().trim().min(1, "Supplier is required."),
 });
-
-async function fetchPendingOrders() {
-  const { data, error } = await getPendingOrders();
-  if (error) throw new Error(error);
-  return data ?? [];
-}
 
 const ConvertSourcingModal = ({ item, onConfirm, onCancel }) => {
   const [mode, setMode] = useState("new"); // "new" | "existing"

@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContract } from "./api/contracts.js";
-import { getStats } from "./api/licenses.js";
 import { getNotifications } from "./api/notifications.js";
-import { getPendingOrders } from "./api/pendingOrders.js";
 import AppRouter from "./AppRouter.jsx";
 import { queryKeys } from "./queryKeys.js";
+import { fetchLicenseStats, fetchPendingOrders } from "./queryFns.js";
 import { createManualEntryData } from "./constants/licenseData.js";
 
 async function fetchNotifications() {
@@ -13,18 +12,6 @@ async function fetchNotifications() {
   if (error) throw new Error(error);
   if (!Array.isArray(data)) throw new Error("Notification data was not returned by the server.");
   return data;
-}
-
-async function fetchLicenseStats() {
-  const { data, error } = await getStats();
-  if (error) throw new Error(error);
-  return data ?? null;
-}
-
-async function fetchPendingOrdersList() {
-  const { data, error } = await getPendingOrders();
-  if (error) throw new Error(error);
-  return data ?? [];
 }
 
 function buildSidebarStats(stats, orders) {
@@ -51,7 +38,7 @@ async function fetchPortfolioStats(queryClient) {
     }),
     queryClient.fetchQuery({
       queryKey: queryKeys.pendingOrders,
-      queryFn: fetchPendingOrdersList,
+      queryFn: fetchPendingOrders,
     }),
   ]);
   return buildSidebarStats(stats, orders);

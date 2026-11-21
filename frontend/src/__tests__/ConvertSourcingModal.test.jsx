@@ -91,4 +91,30 @@ describe("ConvertSourcingModal supplier contract", () => {
 
     expect(screen.getByRole("button", { name: /add to existing/i })).toBeEnabled();
   });
+
+  it("does not offer converted orders cached by the Pending Orders page", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(queryKeys.pendingOrdersWithEvidenceIssues, [
+      { id: 2, poNumber: "PO-OPEN", supplier: "Common Reseller", status: "pending" },
+      { id: 3, poNumber: "PO-CONVERTED", supplier: "Common Reseller", status: "converted" },
+    ]);
+    getPendingOrders.mockResolvedValue({
+      data: [{ id: 2, poNumber: "PO-OPEN", supplier: "Common Reseller", status: "pending" }],
+    });
+
+    renderWithQueryClient(
+      <ConvertSourcingModal
+        item={{ ...REQUEST, supplier: "Common Reseller" }}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+      queryClient,
+    );
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /add to existing/i })).toBeEnabled());
+    expect(getPendingOrders).toHaveBeenCalledWith();
+    fireEvent.click(screen.getByRole("button", { name: /add to existing/i }));
+    expect(screen.getByRole("option", { name: /PO-OPEN/i })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /PO-CONVERTED/i })).not.toBeInTheDocument();
+  });
 });
