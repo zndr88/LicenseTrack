@@ -64,3 +64,8 @@ export function getVisibleColumns(activeColumns, visList) {
     return visList[col.key];
   });
 }
+
+// Wording shared by the status chip bar and the empty table state.
+export function hiddenMatchesText(count) {
+  return `${count} ${count === 1 ? "match" : "matches"} hidden by the status filter`;
+}

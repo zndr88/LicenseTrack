@@ -77,6 +77,24 @@ describe("LicenseStatusFilter", () => {
     expect(screen.queryByLabelText("Clear filters")).toBeNull();
   });
 
+  test("shows no hidden-matches hint by default", () => {
+    setup({ statusFilters: ["active"] });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  test("hidden-matches hint shows the count and Show all clears the chips", () => {
+    const { setStatusFilters, setCurrentPage } = setup({ statusFilters: ["active"], hiddenByStatusCount: 2 });
+    expect(screen.getByRole("status").textContent).toContain("2 matches hidden by the status filter");
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    expect(setStatusFilters).toHaveBeenCalledWith([]);
+    expect(setCurrentPage).toHaveBeenCalledWith(1);
+  });
+
+  test("hidden-matches hint uses the singular for one match", () => {
+    setup({ statusFilters: ["active"], hiddenByStatusCount: 1 });
+    expect(screen.getByRole("status").textContent).toContain("1 match hidden by the status filter");
+  });
+
   test("clear button is shown when no status is selected", () => {
     setup({ statusFilters: [] });
     expect(screen.getByLabelText("Clear filters")).toBeTruthy();

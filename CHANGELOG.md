@@ -31,6 +31,11 @@ contracts will be called out under a **Breaking** heading in future releases.
   same pre-upgrade snapshot as startup. Set `RUN_MIGRATIONS_ON_STARTUP=false`
   to stop the app from upgrading at startup; it then refuses to start until the
   database is current. Startup upgrades stay on by default.
+- License Overview search says when matches are kept out of the list by the
+  status chips: "N matches hidden by the status filter", next to the chips and
+  in the "No licenses found" message, with a **Show all** link that clears the
+  chips. Before, searching for an upcoming, renewed, retired or legacy record
+  showed nothing and gave no hint that the record exists.
 
 ### Changed
 

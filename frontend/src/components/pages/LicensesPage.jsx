@@ -120,7 +120,7 @@ export default function LicensesPage({
   } = useLicensesPageData({ showError, includeContracts: Boolean(selectedId) });
 
   // Derived data
-  const { sorted, stats, enriched, paginatedItems, totalPages, departments } = useLicenseData(licenses, {
+  const { sorted, stats, enriched, paginatedItems, totalPages, departments, hiddenByStatusCount } = useLicenseData(licenses, {
     search, statusFilters,
     columnFilters,
     currentPage, pageSize, sortCol, sortDir, globalSettings, userSettings, apiStats,
@@ -433,6 +433,7 @@ export default function LicensesPage({
                 statusFilters={statusFilters}
                 setStatusFilters={setStatusFilters}
                 setCurrentPage={setCurrentPage}
+                hiddenByStatusCount={hiddenByStatusCount}
               />
               {(groupStripOpen || groupBy.length > 0) && (
                 <LicenseGroupStrip
@@ -445,6 +446,8 @@ export default function LicensesPage({
             <LicenseTable
               filtered={sorted}
               loading={licensesLoading}
+              hiddenByStatusCount={hiddenByStatusCount}
+              onShowAllStatuses={() => { setStatusFilters([]); setCurrentPage(1); }}
               sorted={sorted}
               paginatedItems={paginatedItems}
               licenses={enriched}

@@ -5,11 +5,13 @@ import LicenseGroupRow from "./LicenseGroupRow.jsx";
 import LicenseTableFooter from "./LicenseTableFooter.jsx";
 import LicenseTableHeader from "./LicenseTableHeader.jsx";
 import LicenseTableRowCells from "./LicenseTableRowCells.jsx";
-import { getUpcomingReplacementState, getVisibleColumns, rowStyle, VIRTUAL_THRESHOLD } from "./licenseTableShared.js";
+import { hiddenMatchesText, getUpcomingReplacementState, getVisibleColumns, rowStyle, VIRTUAL_THRESHOLD } from "./licenseTableShared.js";
 
 export default function LicenseTable({
   filtered,
   loading = false,
+  hiddenByStatusCount = 0,
+  onShowAllStatuses,
   sorted,
   paginatedItems,
   licenses,
@@ -184,7 +186,16 @@ export default function LicenseTable({
                   <div className="empty">
                     <Icon name="file" size={32} color="var(--text-3)" />
                     <h3>No licenses found</h3>
-                    <p>Adjust search/filters or add a license.</p>
+                    {hiddenByStatusCount > 0 ? (
+                      <p>
+                        {hiddenMatchesText(hiddenByStatusCount)}.{" "}
+                        <button type="button" className="lp-hidden-matches-show" onClick={onShowAllStatuses}>
+                          Show all
+                        </button>
+                      </p>
+                    ) : (
+                      <p>Adjust search/filters or add a license.</p>
+                    )}
                   </div>
                 </td>
               </tr>
