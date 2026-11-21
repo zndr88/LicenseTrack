@@ -84,7 +84,7 @@ export default function BackupSection({ isOpen, isDirty, onToggle, markDirty, cl
             </div>
             <div className="fr">
               <div className="fg">
-                <label htmlFor="settings-backup-hour">Daily Database Backup Hour (0-23)</label>
+                <label htmlFor="settings-backup-hour">Daily Database Backup Hour (0-23, UTC)</label>
                 <input id="settings-backup-hour" className="fi" type="number" min="0" max="23" value={globalSettings.backupHour} onChange={(e) => { setGlobalSettings(s => ({ ...s, backupHour: parseIntegerInput(e.target.value) })); markDirty("backup"); }} />
               </div>
               <div className="fg">
