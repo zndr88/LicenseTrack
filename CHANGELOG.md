@@ -55,6 +55,9 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- Column headers on Sourcing and Pending Orders could only be sorted with the
+  mouse. They can now be reached with Tab and sorted with Enter or Space, and
+  they announce the sort direction to screen readers, like the license table.
 - When the list on Sourcing, Pending Orders or Contracts could not be loaded,
   the page showed a brief error and then its "nothing here yet" message, as if
   there were no data. These pages now show the error with a Retry button
