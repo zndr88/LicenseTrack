@@ -113,19 +113,7 @@ export default function ReportsPage({ userSettings, globalSettings, onError }) {
     setExporting(true);
     try {
       const { exportStructuredReportPdf } = await import("../../utils/pdfExport.js");
-      if (typeof exportStructuredReportPdf === "function") {
-        await exportStructuredReportPdf(report, "license-lifecycle-full-report", userSettings);
-      } else {
-        const { exportFullReportPdf } = await import("../../utils/pdfExport.js");
-        await exportFullReportPdf([
-          { elementId: "report-section-cost-forecast", title: "Cost Overview & Forecast" },
-          { elementId: "report-section-publisher-vendor", title: "Publisher & Vendor Overview" },
-          { elementId: "report-section-portfolio", title: "Portfolio Breakdown" },
-          { elementId: "report-section-renewal", title: "Renewal Calendar" },
-          { elementId: "report-section-perpetual-maintenance", title: "Perpetual Licenses & Maintenance" },
-          { elementId: "report-section-purchase-orders", title: "Purchase Order Value Tracker" },
-        ], "license-lifecycle-full-report", userSettings);
-      }
+      await exportStructuredReportPdf(report, "license-lifecycle-full-report", userSettings);
     } catch {
       if (onError) onError("PDF export failed — try again");
     } finally {

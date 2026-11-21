@@ -63,6 +63,9 @@ contracts will be called out under a **Breaking** heading in future releases.
   loaded, opening another page shows "Leave the import?" and closing or
   reloading the tab asks for confirmation, until the import has finished or
   you cancel it.
+- Removed the unused screenshot-based PDF export and the direct `html2canvas`
+  dependency; the Reports page already always used the structured PDF export.
+  Also removed style rules that no screen uses any more.
 
 ### Fixed
 
