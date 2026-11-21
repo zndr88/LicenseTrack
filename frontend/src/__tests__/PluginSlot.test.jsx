@@ -116,4 +116,34 @@ describe("PluginSlot", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("Parse Document failed: Runtime failed");
   });
+
+  test("a slot that fails to render is left empty without taking the page down", async () => {
+    // An action without a usable shape makes the slot throw while rendering.
+    listPluginActions.mockResolvedValue({ data: { actions: [null] }, error: null });
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const suppressExpectedError = (event) => event.preventDefault();
+    window.addEventListener("error", suppressExpectedError);
+    try {
+      render(
+        <div>
+          <span>Surrounding page</span>
+          <PluginSlot
+            slot="document.row.actions"
+            context={{ targetType: "license_document", targetId: 42 }}
+          />
+        </div>,
+      );
+
+      await waitFor(() => expect(consoleSpy).toHaveBeenCalledWith(
+        "PluginSlot caught:",
+        expect.any(TypeError),
+        expect.anything(),
+      ));
+      expect(screen.getByText("Surrounding page")).toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    } finally {
+      window.removeEventListener("error", suppressExpectedError);
+      consoleSpy.mockRestore();
+    }
+  });
 });
