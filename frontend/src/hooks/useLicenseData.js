@@ -41,6 +41,33 @@ const FILTER_FIELD_BY_COLUMN = {
   maintenanceCost: "maintenanceCost",
 };
 
+function matchesStatusFilters(l, { values, hasLifecycleFilters, hasCompletenessFilters, supportDueOnly }) {
+  if (hasLifecycleFilters) {
+    const matchesLifecycle = (
+      (values.has("active") && (l.expiration.status === "active" || l.expiration.status === "perpetual")) ||
+      (values.has("upcoming") && l.expiration.status === "upcoming") ||
+      (values.has("expiring") && l.expiration.status === "expiring") ||
+      (values.has("expired") && l.expiration.status === "expired") ||
+      (values.has("pending_renewal") && l.lifecycleStatus === "pending_renewal") ||
+      (values.has("renewed") && l.expiration.status === "renewed") ||
+      (values.has("retired") && l.expiration.status === "retired") ||
+      (values.has("legacy") && l.expiration.status === "legacy")
+    );
+    if (!matchesLifecycle) return false;
+  }
+
+  if (supportDueOnly && !isSupportDue(l)) return false;
+
+  if (hasCompletenessFilters) {
+    const matchesCompleteness = (
+      (values.has("complete") && l.completeness.isComplete) ||
+      (values.has("incomplete") && !l.completeness.isExempt && !l.completeness.isComplete)
+    );
+    if (!matchesCompleteness) return false;
+  }
+  return true;
+}
+
 export function useLicenseData(licenses, {
   search,
   statusFilters,
@@ -93,35 +120,12 @@ export function useLicenseData(licenses, {
     return { ...l, completeness, expiration };
   }), [licenses, globalSettings.mandatoryFields]);
 
-  const filtered = useMemo(() => enriched.filter((l) => {
+  // Search and column filters only; the status chips are applied afterwards so
+  // the matches they hide can be counted.
+  const searchMatches = useMemo(() => enriched.filter((l) => {
     if (normalizedSearch) {
       const hay = `${l.licenseRef || ""} ${(l.licenseRefAliases || []).join(" ")} ${l.publisherName} ${l.softwareDescription} ${l.contractNumber} ${l.poNumber} ${l.procurementReference || ""} ${l.supplier || ""}`.toLowerCase();
       if (!hay.includes(normalizedSearch)) return false;
-    }
-    if (activeStatusFilters.hasLifecycleFilters) {
-      const { values } = activeStatusFilters;
-      const matchesLifecycle = (
-        (values.has("active") && (l.expiration.status === "active" || l.expiration.status === "perpetual")) ||
-        (values.has("upcoming") && l.expiration.status === "upcoming") ||
-        (values.has("expiring") && l.expiration.status === "expiring") ||
-        (values.has("expired") && l.expiration.status === "expired") ||
-        (values.has("pending_renewal") && l.lifecycleStatus === "pending_renewal") ||
-        (values.has("renewed") && l.expiration.status === "renewed") ||
-        (values.has("retired") && l.expiration.status === "retired") ||
-        (values.has("legacy") && l.expiration.status === "legacy")
-      );
-      if (!matchesLifecycle) return false;
-    }
-
-    if (activeStatusFilters.supportDueOnly && !isSupportDue(l)) return false;
-
-    if (activeStatusFilters.hasCompletenessFilters) {
-      const { values } = activeStatusFilters;
-      const matchesCompleteness = (
-        (values.has("complete") && l.completeness.isComplete) ||
-        (values.has("incomplete") && !l.completeness.isExempt && !l.completeness.isComplete)
-      );
-      if (!matchesCompleteness) return false;
     }
     // Column filters - AND logic, applied after existing filters
     if (activeColumnFilters.length > 0) {
@@ -253,7 +257,15 @@ export function useLicenseData(licenses, {
     }
 
     return true;
-  }), [enriched, normalizedSearch, activeStatusFilters, activeColumnFilters, numberFormatLocale, customFieldDefs, customFieldValuesMap]);
+  }), [enriched, normalizedSearch, activeColumnFilters, numberFormatLocale, customFieldDefs, customFieldValuesMap]);
+
+  const filtered = useMemo(
+    () => searchMatches.filter((l) => matchesStatusFilters(l, activeStatusFilters)),
+    [searchMatches, activeStatusFilters],
+  );
+
+  // Search matches that the status chips keep out of the list.
+  const hiddenByStatusCount = normalizedSearch ? searchMatches.length - filtered.length : 0;
 
   const sorted = useMemo(() => {
     if (!sortCol) return filtered;
@@ -357,6 +369,7 @@ export function useLicenseData(licenses, {
   return {
     enriched,
     filtered,
+    hiddenByStatusCount,
     sorted,
     stats,
     paginatedItems,

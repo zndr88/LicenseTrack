@@ -1,4 +1,5 @@
 import { DEFAULT_STATUS_FILTERS } from "../../../constants/licenseData.js";
+import { hiddenMatchesText } from "./licenseTableShared.js";
 
 // `tone` picks the chip colour through the lp-chip-<tone> classes in licenses.css.
 const CHIPS = [
@@ -22,7 +23,9 @@ function isDefaultSelection(statusFilters) {
     && DEFAULT_STATUS_FILTERS.every((key) => statusFilters.includes(key));
 }
 
-export default function LicenseStatusFilter({ statusFilters, setStatusFilters, setCurrentPage }) {
+// Status chips for License Overview. `hiddenByStatusCount` is the number of
+// search matches the chips keep out of the list; "Show all" clears the chips.
+export default function LicenseStatusFilter({ statusFilters, setStatusFilters, setCurrentPage, hiddenByStatusCount = 0 }) {
   const toggle = (key) => {
     setStatusFilters((prev) => {
       const isActive = prev.includes(key);
@@ -64,7 +67,20 @@ export default function LicenseStatusFilter({ statusFilters, setStatusFilters, s
           </button>
         )}
       </div>
-      <div className="lp-row2-right" />
+      <div className="lp-row2-right">
+        {hiddenByStatusCount > 0 && (
+          <span className="lp-hidden-matches" role="status">
+            {hiddenMatchesText(hiddenByStatusCount)}
+            <button
+              type="button"
+              className="lp-hidden-matches-show"
+              onClick={() => { setStatusFilters([]); setCurrentPage(1); }}
+            >
+              Show all
+            </button>
+          </span>
+        )}
+      </div>
     </div>
   );
 }
