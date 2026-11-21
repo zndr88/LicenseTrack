@@ -75,7 +75,7 @@ describe("mirror marker parsing", () => {
 
 describe("demo mirror markers point at server code that exists", () => {
   const markers = Object.entries(demoSources).flatMap(([path, source]) => (
-    findMirrorMarkers(source).map((marker) => ({ ...marker, demoFile: path.replace("../", "") }))
+    findMirrorMarkers(source).map((marker) => ({ ...marker, demoFile: path.startsWith("../") ? path.slice(3) : path }))
   ));
 
   it("finds the markers", () => {
