@@ -101,7 +101,7 @@ export default function AuditLogTab() {
 
     setEntries(data?.results ?? []);
     setTotal(data?.total ?? 0);
-  }, [buildParams, filterCategory]);
+  }, [buildParams]);
 
   // Reset to page 1 when filters change
   useEffect(() => {

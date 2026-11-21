@@ -1,13 +1,13 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { nodeTestFiles } from "./vitest.node-tests.js";
+
+const sharedExclude = ["tests/**", "node_modules/**", "dist/**"];
 
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "jsdom",
     globals: true,
-    setupFiles: ["./src/__tests__/setup.js"],
-    exclude: ["tests/**", "node_modules/**", "dist/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
@@ -18,5 +18,25 @@ export default defineConfig({
         lines: 55,
       },
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "jsdom",
+          environment: "jsdom",
+          setupFiles: ["./src/__tests__/setup.js"],
+          exclude: [...sharedExclude, ...nodeTestFiles],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: nodeTestFiles,
+          exclude: sharedExclude,
+        },
+      },
+    ],
   },
 });
