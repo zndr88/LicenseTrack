@@ -267,8 +267,8 @@ take precedence over PO text, including when multiple groups reuse a PO number.
 `backend/app/services/reporting_service.py` owns the detailed reconciliation
 models. PO overrides are resolved by pending-order ID, procurement-bundle ID,
 then normalized PO number and currency; records without an identity remain
-individual rows. `frontend/src/utils/reportHelpers.js` remains a compatibility
-utility for older callers, but ReportsPage uses the server model. Structured
+individual rows. ReportsPage uses the server model; `frontend/src/demo/reportHelpers.js`
+re-implements it for the in-browser demo only. Structured
 CSV export is assembled by `report_export_service.py` from that same response.
 `frontend/src/api/reports.js` owns detailed-report requests and converts the
 server's canonical decimal strings to presentation numbers at the API boundary.

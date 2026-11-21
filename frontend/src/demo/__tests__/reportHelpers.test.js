@@ -10,7 +10,7 @@ import {
   getRenewalCalendar,
   getSpendByPublisher,
   getVendorTable,
-} from "../utils/reportHelpers.js";
+} from "../reportHelpers.js";
 
 function license(overrides = {}) {
   return {

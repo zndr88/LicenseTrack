@@ -1,0 +1,139 @@
+{
+  "about": "Record completeness cases run by the server (tests/test_unit/test_completeness_cases.py) and by the in-browser demo (frontend/src/demo/__tests__/sharedCases.test.js). License fields use the camelCase names of the API; anything left out takes the default in license_defaults. Dates are whole-day offsets from today, or null. documents lists the categories of the uploaded documents. expected is the completeness percentage, or null for an exempt record.",
+  "license_defaults": {"licenseType": "subscription", "isCompletenessExempt": false, "isRenewable": null, "startDate": null, "endDate": null, "noticeDate": null, "contractNumber": "", "poNumber": "", "invoiceNumber": "", "contactEmail": "", "costCentre": "", "budgetOwnerEmail": "", "maintenanceCoverage": null, "maintenanceCost": null},
+  "cases": [
+    {
+      "name": "an exempt record has no percentage",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": true, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {"isCompletenessExempt": true},
+      "documents": [],
+      "expected": null
+    },
+    {
+      "name": "nothing required is complete",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": false, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {},
+      "documents": [],
+      "expected": 100
+    },
+    {
+      "name": "one of three required fields",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": true, "invoiceNumber": true, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": true},
+      "license": {"poNumber": "PO-1"},
+      "documents": [],
+      "expected": 33
+    },
+    {
+      "name": "two of three required fields",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": true, "invoiceNumber": true, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": true},
+      "license": {"poNumber": "PO-1", "budgetOwnerEmail": "owner@example.com"},
+      "documents": [],
+      "expected": 67
+    },
+    {
+      "name": "every field kind filled in",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": true, "endDate": true, "noticeDate": true, "contractNumber": true, "poNumber": true, "invoiceNumber": true, "contactEmail": true, "costCentre": true, "budgetOwnerEmail": true},
+      "license": {"startDate": -10, "endDate": 354, "noticeDate": 300, "contractNumber": "C-1", "poNumber": "PO-1", "invoiceNumber": "INV-1", "contactEmail": "c@example.com", "costCentre": "IT", "budgetOwnerEmail": "owner@example.com"},
+      "documents": [],
+      "expected": 100
+    },
+    {
+      "name": "one of eight rounds a half to the even number",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": true, "endDate": false, "noticeDate": true, "contractNumber": true, "poNumber": true, "invoiceNumber": true, "contactEmail": true, "costCentre": true, "budgetOwnerEmail": true},
+      "license": {"poNumber": "PO-1"},
+      "documents": [],
+      "expected": 12
+    },
+    {
+      "name": "five of eight rounds a half to the even number",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": true, "endDate": false, "noticeDate": true, "contractNumber": true, "poNumber": true, "invoiceNumber": true, "contactEmail": true, "costCentre": true, "budgetOwnerEmail": true},
+      "license": {"startDate": -10, "noticeDate": 300, "contractNumber": "C-1", "poNumber": "PO-1", "invoiceNumber": "INV-1"},
+      "documents": [],
+      "expected": 62
+    },
+    {
+      "name": "required documents count by category",
+      "mandatory_fields": {"invoice": true, "eula": true, "entitlement": true, "purchaseOrder": true, "quote": true, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": false, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {},
+      "documents": ["invoice", "purchase_order", "invoice"],
+      "expected": 40
+    },
+    {
+      "name": "a subscription needs its end date",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": true, "noticeDate": false, "contractNumber": false, "poNumber": false, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {},
+      "documents": [],
+      "expected": 0
+    },
+    {
+      "name": "a perpetual license needs no end date",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": true, "noticeDate": false, "contractNumber": false, "poNumber": false, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {"licenseType": "perpetual"},
+      "documents": [],
+      "expected": 100
+    },
+    {
+      "name": "a one-off service needs no end date",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": true, "noticeDate": false, "contractNumber": false, "poNumber": false, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {"licenseType": "service", "isRenewable": false},
+      "documents": [],
+      "expected": 100
+    },
+    {
+      "name": "a renewable service needs its end date",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": true, "noticeDate": false, "contractNumber": false, "poNumber": false, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {"licenseType": "service", "isRenewable": true},
+      "documents": [],
+      "expected": 0
+    },
+    {
+      "name": "a service is not asked for entitlement or EULA documents",
+      "mandatory_fields": {"invoice": false, "eula": true, "entitlement": true, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": true, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {"licenseType": "service", "poNumber": "PO-1"},
+      "documents": [],
+      "expected": 100
+    },
+    {
+      "name": "an Other purchase is still asked for an invoice document",
+      "mandatory_fields": {"invoice": true, "eula": false, "entitlement": true, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": false, "invoiceNumber": false, "contactEmail": false, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {"licenseType": "other"},
+      "documents": [],
+      "expected": 0
+    },
+    {
+      "name": "freeware is not asked for purchase details",
+      "mandatory_fields": {"invoice": true, "eula": true, "entitlement": true, "purchaseOrder": true, "quote": true, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": true, "poNumber": true, "invoiceNumber": true, "contactEmail": true, "costCentre": true, "budgetOwnerEmail": false},
+      "license": {"licenseType": "freeware", "costCentre": "IT"},
+      "documents": [],
+      "expected": 100
+    },
+    {
+      "name": "freeware is still asked for the fields that apply to it",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": true, "invoiceNumber": false, "contactEmail": true, "costCentre": true, "budgetOwnerEmail": true},
+      "license": {"licenseType": "freeware", "costCentre": "IT"},
+      "documents": [],
+      "expected": 50
+    },
+    {
+      "name": "freeware with only inapplicable requirements is complete",
+      "mandatory_fields": {"invoice": false, "eula": true, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": true, "invoiceNumber": false, "contactEmail": true, "costCentre": false, "budgetOwnerEmail": false},
+      "license": {"licenseType": "freeware"},
+      "documents": [],
+      "expected": 100
+    },
+    {
+      "name": "freeware with paid included maintenance is asked for purchase details",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": true, "invoiceNumber": true, "contactEmail": true, "costCentre": true, "budgetOwnerEmail": false},
+      "license": {"licenseType": "freeware", "maintenanceCoverage": "included", "maintenanceCost": "1200.00", "poNumber": "PO-1", "costCentre": "IT"},
+      "documents": [],
+      "expected": 67
+    },
+    {
+      "name": "freeware with free included maintenance is not asked for purchase details",
+      "mandatory_fields": {"invoice": false, "eula": false, "entitlement": false, "purchaseOrder": false, "quote": false, "startDate": false, "endDate": false, "noticeDate": false, "contractNumber": false, "poNumber": true, "invoiceNumber": true, "contactEmail": false, "costCentre": true, "budgetOwnerEmail": false},
+      "license": {"licenseType": "freeware", "maintenanceCoverage": "included", "maintenanceCost": "0", "costCentre": "IT"},
+      "documents": [],
+      "expected": 100
+    }
+  ]
+}

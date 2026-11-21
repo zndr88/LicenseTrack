@@ -1,5 +1,9 @@
+// Report calculations for the in-browser demo only. The application's Reports
+// page shows the model the server builds; this file re-implements those rules
+// so the demo can answer the same request without a server.
+// Mirrors backend/app/services/reporting_service.py.
 import { LICENSE_TYPES, LICENSE_METRICS } from "../constants/licenseData.js";
-import { isRenewableLicense, isRenewalOptInLicenseType } from "./licenseTypeRules.js";
+import { isRenewableLicense, isRenewalOptInLicenseType } from "../utils/licenseTypeRules.js";
 
 // Filter
 
