@@ -1,16 +1,33 @@
+import { useState } from "react";
+import { useBeforeUnloadWarning } from "../../hooks/useBeforeUnloadWarning.js";
 import { useCSVImportState } from "../../hooks/useCSVImportState.js";
+import { useNavigationGuard } from "../../hooks/useNavigationGuard.js";
+import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import UploadStep from "../csv-import/UploadStep.jsx";
 import PreviewStep from "../csv-import/PreviewStep.jsx";
 import MappingStep from "../csv-import/MappingStep.jsx";
 import DoneStep from "../csv-import/DoneStep.jsx";
+
+const IMPORT_PAGE = "import";
 
 const CSVImportPage = ({
   onImportComplete,
   onGoToLicenses,
   userSettings,
   canManageImportMappings = false,
+  navGuard,
 }) => {
   const state = useCSVImportState({ onImportComplete, userSettings, canManageImportMappings });
+  // Page the user tried to open while an import was in progress.
+  const [leaveTarget, setLeaveTarget] = useState(null);
+
+  useNavigationGuard({
+    anyDirty: state.importInProgress,
+    navGuard,
+    // Choosing Import again while already here is not leaving.
+    onBlockedNavigate: (target) => { if (target !== IMPORT_PAGE) setLeaveTarget(target); },
+  });
+  useBeforeUnloadWarning(state.importInProgress);
 
   return (
     <>
@@ -116,6 +133,21 @@ const CSVImportPage = ({
         )}
 
       </div>
+
+      {leaveTarget && (
+        <ConfirmDialog
+          title="Leave the import?"
+          message="This import is not finished. If you leave now, the uploaded file, the column mapping and your choices per row are lost."
+          confirmLabel="Leave"
+          cancelLabel="Stay"
+          onConfirm={() => {
+            const target = leaveTarget;
+            setLeaveTarget(null);
+            navGuard?.navigate?.(target);
+          }}
+          onCancel={() => setLeaveTarget(null)}
+        />
+      )}
     </>
   );
 };

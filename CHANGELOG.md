@@ -45,6 +45,10 @@ contracts will be called out under a **Breaking** heading in future releases.
   loaded, it says "A new version is available" with a Reload button. An
   extension button that fails to display is left out instead of breaking its
   page.
+- CSV import asks before you leave with an import in progress. Once a file is
+  loaded, opening another page shows "Leave the import?" and closing or
+  reloading the tab asks for confirmation, until the import has finished or
+  you cancel it.
 
 ### Fixed
 

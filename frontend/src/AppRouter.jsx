@@ -202,6 +202,7 @@ export default function AppRouter({
               invalidateImportState(queryClient);
             }}
             onGoToLicenses={() => { invalidateNotifications(queryClient); setPage("licenses"); }}
+            navGuard={{ navigate: setPage, registerNavGuard: handleRegisterNavGuard }}
           />
         )}
 

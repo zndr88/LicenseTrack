@@ -130,6 +130,10 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
     await preview.handleUpdateExisting(csvFile, next);
   };
 
+  // A file is loaded and the import has not finished: leaving now loses the
+  // file, the mapping and the per-row decisions.
+  const importInProgress = step === "mapping" || step === "preview" || step === "importing";
+
   const reset = () => {
     setStep("upload");
     setCsvFile(null);
@@ -143,7 +147,7 @@ export function useCSVImportState({ onImportComplete, userSettings, canManageImp
   return {
     // Step / flow
     step, source, setSource, loading, error, dragOver, setDragOver,
-    fileInputRef, handleFile, reset,
+    fileInputRef, handleFile, reset, importInProgress,
 
     // Upload
     savedMappings: analysis.savedMappings,
