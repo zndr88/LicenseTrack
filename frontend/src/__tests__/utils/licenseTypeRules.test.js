@@ -11,7 +11,7 @@ import {
   typeOptInPayload,
 } from "../../utils/licenseTypeRules.js";
 import { isRenewalActionEligible } from "../../utils/renewalBundle.js";
-import { getBudgetForecast } from "../../utils/reportHelpers.js";
+import { getBudgetForecast } from "../../demo/reportHelpers.js";
 
 describe("licenseTypeRules", () => {
   test("non-expiring types are recognised", () => {

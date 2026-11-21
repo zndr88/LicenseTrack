@@ -20,7 +20,7 @@ import {
   getRenewalCalendar,
   getSpendByPublisher,
   getVendorTable,
-} from "../utils/reportHelpers.js";
+} from "../demo/reportHelpers.js";
 
 vi.mock("recharts", () => {
   const passthrough = ({ children }) => <div>{children}</div>;

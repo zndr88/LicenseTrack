@@ -819,7 +819,7 @@ export function buildSeedData() {
   }));
 
   // totalPoValue mirrors backend _format_currency: symbol + thousands separators + 2dp
-  // (see store.js::computeTotalPoValue, which mirrors PendingOrderResponse._compute_total_po_value).
+  // (see store.js::computeTotalPoValue, which mirrors pending_order_service.pending_order_total).
   const totalPoValue = computeTotalPoValue(poItems);
 
   const pendingOrders = [
