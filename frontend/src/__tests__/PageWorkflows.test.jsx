@@ -1226,6 +1226,46 @@ describe("ContractsPage workflows", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  test("searches contracts by number, publisher and notes, and sorts them", async () => {
+    contractsApi.getContracts.mockResolvedValue({
+      data: [
+        { id: 1, publisherName: "Acme", contractNumber: "CN-30", notes: "Framework via Northwind", licenseCount: 0, documentCount: 0, createdAt: "2026-01-01T00:00:00Z" },
+        { id: 2, publisherName: "Zeta", contractNumber: "CN-10", notes: null, licenseCount: 0, documentCount: 0, createdAt: "2026-03-01T00:00:00Z" },
+        { id: 3, publisherName: "Midway", contractNumber: "CN-20", notes: "", licenseCount: 0, documentCount: 0, createdAt: "2026-02-01T00:00:00Z" },
+      ],
+      error: null,
+    });
+    wrapWithQueryClient(<ContractsPage user={admin} userSettings={userSettings} showError={vi.fn()} />);
+    const tileOrder = () => screen.getAllByRole("button", { name: /^Open contract/ })
+      .map((tile) => tile.getAttribute("aria-label").match(/CN-\d+/)[0]);
+
+    await screen.findByRole("button", { name: /Open contract CN-30/i });
+    expect(tileOrder()).toEqual(["CN-30", "CN-20", "CN-10"]);
+
+    const sort = screen.getByLabelText("Sort contracts");
+    fireEvent.change(sort, { target: { value: "contractNumber" } });
+    expect(tileOrder()).toEqual(["CN-10", "CN-20", "CN-30"]);
+    fireEvent.change(sort, { target: { value: "newest" } });
+    expect(tileOrder()).toEqual(["CN-10", "CN-20", "CN-30"]);
+    fireEvent.change(sort, { target: { value: "oldest" } });
+    expect(tileOrder()).toEqual(["CN-30", "CN-20", "CN-10"]);
+
+    const search = screen.getByLabelText("Search contracts");
+    fireEvent.change(search, { target: { value: "cn-2" } });
+    expect(tileOrder()).toEqual(["CN-20"]);
+    expect(screen.getByText("1 of 3 contracts")).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "zeta" } });
+    expect(tileOrder()).toEqual(["CN-10"]);
+    fireEvent.change(search, { target: { value: "northwind" } });
+    expect(tileOrder()).toEqual(["CN-30"]);
+
+    fireEvent.change(search, { target: { value: "nothing" } });
+    expect(screen.getByText("No contracts match your search.")).toBeInTheDocument();
+    expect(screen.queryByText(/No contracts yet/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(tileOrder()).toEqual(["CN-30", "CN-20", "CN-10"]);
+  });
+
   test("keeps the contract delete control isolated from tile activation", async () => {
     const user = userEvent.setup();
     contractsApi.getContracts.mockResolvedValue({
