@@ -9,14 +9,7 @@ import { sourcingRequestPublishers } from "./sourcingPageState.js";
 import { procurementLineTotal, procurementTotalsByCurrency } from "../../../utils/procurementTotals.js";
 import { formatQuantity } from "../../../utils/quantity.js";
 import TermLinkContext from "../../procurement/TermLinkContext.jsx";
-
-function SortIndicator({ col, sortCol, sortDir }) {
-  return sortCol === col ? (
-    <span style={{ marginLeft: 4, fontSize: 10, color: "var(--accent)", verticalAlign: "middle" }}>
-      {sortDir === "asc" ? "▲" : "▼"}
-    </span>
-  ) : null;
-}
+import SortableHeader from "../../ui/SortableHeader.jsx";
 
 function requestTotal(request, locale) {
   const entries = Object.entries(procurementTotalsByCurrency(request.items)).sort(([a], [b]) => a.localeCompare(b));
@@ -442,12 +435,12 @@ export default function SourcingTable({
           <thead>
             <tr>
               <th scope="col" style={{ width: 28 }} />
-              <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("supplier")}>Supplier<SortIndicator col="supplier" sortCol={sortCol} sortDir={sortDir} /></th>
-              <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("publisher")}>Publisher<SortIndicator col="publisher" sortCol={sortCol} sortDir={sortDir} /></th>
-              <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("itemCount")}>Items<SortIndicator col="itemCount" sortCol={sortCol} sortDir={sortDir} /></th>
-              <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("total")}>Est. Total<SortIndicator col="total" sortCol={sortCol} sortDir={sortDir} /></th>
+              <SortableHeader column="supplier" label="Supplier" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+              <SortableHeader column="publisher" label="Publisher" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+              <SortableHeader column="itemCount" label="Items" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
+              <SortableHeader column="total" label="Est. Total" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <th scope="col">Status</th>
-              <th scope="col" style={{ cursor: "pointer", userSelect: "none" }} onClick={() => onSort("created")}>Created<SortIndicator col="created" sortCol={sortCol} sortDir={sortDir} /></th>
+              <SortableHeader column="created" label="Created" sortCol={sortCol} sortDir={sortDir} onSort={onSort} />
               <th scope="col">{readOnly ? "Reference" : "Actions"}</th>
             </tr>
           </thead>

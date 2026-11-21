@@ -13,36 +13,7 @@ import { formatQuantity } from "../../../utils/quantity.js";
 import { hasPurchaseOrderNumber, pendingOrderLabel } from "../../../utils/procurementLabels.js";
 import { isPendingOrderOpen } from "../../../utils/pendingOrderState.js";
 import TermLinkContext from "../../procurement/TermLinkContext.jsx";
-
-function SortIndicator({ active, dir }) {
-  if (!active) return null;
-
-  return (
-    <span
-      style={{
-        marginLeft: 4,
-        fontSize: 10,
-        color: "var(--accent)",
-        verticalAlign: "middle",
-      }}
-    >
-      {dir === "asc" ? "\u25b2" : "\u25bc"}
-    </span>
-  );
-}
-
-function SortableHeader({ column, label, sortCol, sortDir, onSort }) {
-  return (
-    <th
-      scope="col"
-      style={{ cursor: "pointer", userSelect: "none" }}
-      onClick={() => onSort(column)}
-    >
-      {label}
-      <SortIndicator active={sortCol === column} dir={sortDir} />
-    </th>
-  );
-}
+import SortableHeader from "../../ui/SortableHeader.jsx";
 
 function PendingOrderItemsRow({
   po,
