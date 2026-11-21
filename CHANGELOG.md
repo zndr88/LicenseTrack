@@ -17,6 +17,13 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Added
 
+- The Renewal Workbench can be sorted by due date, publisher, supplier, budget
+  owner or value by clicking the column header, also from the keyboard (Tab to
+  the header, then Enter or Space). A third click returns to the standard order.
+  Value sorts inside each currency and never ranks one currency against another.
+- The Renewal Workbench has an "Export CSV" button that downloads the rows and
+  columns currently shown, in the order shown, with ISO dates, plain decimal
+  amounts and the currency code in its own column.
 - License Details has copy buttons next to the LT reference, external
   reference, PO number, contract number and invoice numbers, and a "Copy link"
   button for the address of the license. A short message confirms each copy.
