@@ -21,7 +21,15 @@ vi.mock("../components/pages/NotificationsPage.jsx", () => ({ default: () => <di
 vi.mock("../components/pages/ReportsPage.jsx", () => ({ default: () => <div>Reports page</div> }));
 vi.mock("../components/pages/SettingsPage.jsx", () => ({ default: () => <div>Settings page</div> }));
 vi.mock("../components/pages/AdminPage.jsx", () => ({ default: () => <div>Admin page</div> }));
-vi.mock("../components/pages/CSVImportPage.jsx", () => ({ default: () => <div>Import page</div> }));
+vi.mock("../components/pages/CSVImportPage.jsx", () => ({
+  default: ({ navGuard }) => (
+    <div>
+      Import page
+      <button type="button" onClick={() => navGuard.registerNavGuard("import-guard")}>Register import guard</button>
+      <button type="button" onClick={() => navGuard.navigate("licenses")}>Leave import</button>
+    </div>
+  ),
+}));
 vi.mock("../components/pages/ContractsPage.jsx", () => ({ default: () => <div>Contracts page</div> }));
 vi.mock("../components/pages/HelpPage.jsx", () => ({ default: () => <div>Help page</div> }));
 
@@ -146,6 +154,18 @@ describe("AppRouter permissions", () => {
       queryKeys.reportsPortfolioStats,
       queryKeys.reportsDetailed,
     ]);
+  });
+
+  test("gives the import page the navigation guard", async () => {
+    const setPage = vi.fn();
+    const handleRegisterNavGuard = vi.fn();
+    renderRouter({ page: "import", setPage, handleRegisterNavGuard });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Register import guard" }));
+    expect(handleRegisterNavGuard).toHaveBeenCalledWith("import-guard");
+
+    fireEvent.click(screen.getByRole("button", { name: "Leave import" }));
+    expect(setPage).toHaveBeenCalledWith("licenses");
   });
 
   test("allows reports and contracts for routed users", async () => {

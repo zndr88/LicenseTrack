@@ -17,6 +17,13 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Added
 
+- The Renewal Workbench can be sorted by due date, publisher, supplier, budget
+  owner or value by clicking the column header, also from the keyboard (Tab to
+  the header, then Enter or Space). A third click returns to the standard order.
+  Value sorts inside each currency and never ranks one currency against another.
+- The Renewal Workbench has an "Export CSV" button that downloads the rows and
+  columns currently shown, in the order shown, with ISO dates, plain decimal
+  amounts and the currency code in its own column.
 - License Details has copy buttons next to the LT reference, external
   reference, PO number, contract number and invoice numbers, and a "Copy link"
   button for the address of the license. A short message confirms each copy.
@@ -24,9 +31,16 @@ contracts will be called out under a **Breaking** heading in future releases.
   same pre-upgrade snapshot as startup. Set `RUN_MIGRATIONS_ON_STARTUP=false`
   to stop the app from upgrading at startup; it then refuses to start until the
   database is current. Startup upgrades stay on by default.
+- License Overview search says when matches are kept out of the list by the
+  status chips: "N matches hidden by the status filter", next to the chips and
+  in the "No licenses found" message, with a **Show all** link that clears the
+  chips. Before, searching for an upcoming, renewed, retired or legacy record
+  showed nothing and gave no hint that the record exists.
 
 ### Changed
 
+- The Contracts page has a search box (contract number, publisher and notes)
+  and a sort control: publisher, contract number, newest first or oldest first.
 - License Details remembers which sections you leave open and opens the
   next license the same way. This is kept per user in the browser; a link to
   a section still opens that section.
@@ -45,6 +59,10 @@ contracts will be called out under a **Breaking** heading in future releases.
   loaded, it says "A new version is available" with a Reload button. An
   extension button that fails to display is left out instead of breaking its
   page.
+- CSV import asks before you leave with an import in progress. Once a file is
+  loaded, opening another page shows "Leave the import?" and closing or
+  reloading the tab asks for confirmation, until the import has finished or
+  you cancel it.
 
 ### Fixed
 
@@ -53,6 +71,9 @@ contracts will be called out under a **Breaking** heading in future releases.
   its rows that need a document-transfer retry, depending on which screen had
   loaded the pending orders last. The two lists are now kept apart, so the
   dialog only offers open pending orders.
+- Column headers on Sourcing and Pending Orders could only be sorted with the
+  mouse. They can now be reached with Tab and sorted with Enter or Space, and
+  they announce the sort direction to screen readers, like the license table.
 - When the list on Sourcing, Pending Orders or Contracts could not be loaded,
   the page showed a brief error and then its "nothing here yet" message, as if
   there were no data. These pages now show the error with a Retry button
@@ -103,6 +124,12 @@ contracts will be called out under a **Breaking** heading in future releases.
   sidebar. The text shown while a page loads is styled, the Notifications
   intro no longer starts with "In production", and the settings **Daily Send
   Time** and **Daily Database Backup Hour** now say they are in UTC.
+- Operator documentation and the Help Center now say that `JWT_SECRET` also
+  protects the stored SMTP password, OIDC client secret, webhook signing secrets
+  and API tokens, what to redo after changing it, and that it belongs with the
+  backups. They also state that the notification and backup hours are UTC,
+  that a missed scheduled run is caught up after a restart, and that restore by
+  upload is limited by `MAX_UPLOAD_SIZE_MB`.
 
 ## [1.2.1] - 2026-10-29
 

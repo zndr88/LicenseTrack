@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDateTime } from "../../utils/formatting.js";
 import Icon from "../ui/Icon.jsx";
@@ -11,6 +11,7 @@ import { queryKeys } from "../../queryKeys.js";
 import { invalidateContracts } from "../../queryInvalidation.js";
 import ReferenceCombobox from "../ui/ReferenceCombobox.jsx";
 import LoadError from "../ui/LoadError.jsx";
+import SearchBox from "../ui/SearchBox.jsx";
 
 async function fetchContractsData() {
   const { data, error } = await getContracts();
@@ -180,6 +181,37 @@ function ContractTile({ contract, onOpen, onDelete, canEdit, userSettings }) {
 
 const EMPTY_CONTRACTS = [];
 
+const compareText = (a, b) => (a ?? "").localeCompare(b ?? "", undefined, { sensitivity: "base", numeric: true });
+
+const CONTRACT_SORTS = {
+  publisher: {
+    label: "Publisher (A-Z)",
+    compare: (a, b) => compareText(a.publisherName, b.publisherName) || compareText(a.contractNumber, b.contractNumber),
+  },
+  contractNumber: {
+    label: "Contract number",
+    compare: (a, b) => compareText(a.contractNumber, b.contractNumber),
+  },
+  newest: {
+    label: "Newest first",
+    compare: (a, b) => compareText(b.createdAt, a.createdAt),
+  },
+  oldest: {
+    label: "Oldest first",
+    compare: (a, b) => compareText(a.createdAt, b.createdAt),
+  },
+};
+
+export function filterAndSortContracts(contracts, search, sortKey) {
+  const term = search.trim().toLowerCase();
+  const matching = term
+    ? contracts.filter((contract) => [contract.contractNumber, contract.publisherName, contract.notes]
+      .some((value) => (value ?? "").toLowerCase().includes(term)))
+    : contracts;
+  const { compare } = CONTRACT_SORTS[sortKey] ?? CONTRACT_SORTS.publisher;
+  return [...matching].sort(compare);
+}
+
 export default function ContractsPage({
   user,
   userSettings,
@@ -198,6 +230,12 @@ export default function ContractsPage({
 
   const [selectedContractId, setSelectedContractId] = useState(null);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState("publisher");
+  const displayed = useMemo(
+    () => filterAndSortContracts(contracts, search, sortKey),
+    [contracts, search, sortKey],
+  );
 
   const handleDeleteContract = useCallback(async (id) => {
     const { error: deleteError } = await deleteContract(id);
@@ -221,7 +259,10 @@ export default function ContractsPage({
       <div className="page-header">
         <div>
           <h2>Contracts</h2>
-          <p>{contracts.length} contract{contracts.length !== 1 ? "s" : ""}</p>
+          <p>
+            {search.trim() ? `${displayed.length} of ` : ""}
+            {contracts.length} contract{contracts.length !== 1 ? "s" : ""}
+          </p>
         </div>
         {canEdit && (
           <button className="btn btn-p" onClick={() => setShowNewModal(true)}>
@@ -249,8 +290,33 @@ export default function ContractsPage({
             </p>
           </div>
         ) : (
+          <>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <SearchBox
+              value={search}
+              onChange={setSearch}
+              placeholder="Search contract number, publisher, or notes..."
+              ariaLabel="Search contracts"
+            />
+            <select
+              className="fi fi-select"
+              aria-label="Sort contracts"
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value)}
+              style={{ width: "auto", marginLeft: "auto" }}
+            >
+              {Object.entries(CONTRACT_SORTS).map(([key, { label }]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+          {displayed.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-3)", fontSize: 14 }}>
+              No contracts match your search.
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-            {contracts.map((contract) => (
+            {displayed.map((contract) => (
               <ContractTile
                 key={contract.id}
                 contract={contract}
@@ -261,6 +327,7 @@ export default function ContractsPage({
               />
             ))}
           </div>
+          </>
         )}
       </div>
 

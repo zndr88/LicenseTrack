@@ -583,3 +583,39 @@ describe("support due filter", () => {
     expect(result.current.filtered.map((license) => license.id)).toEqual([due.id, expired.id])
   })
 })
+
+describe("search matches hidden by the status filter", () => {
+  const licenses = () => [
+    makeLicense({ poNumber: "PO-100", expirationStatus: "active" }),
+    makeLicense({ poNumber: "PO-100", expirationStatus: "renewed" }),
+    makeLicense({ poNumber: "PO-100", expirationStatus: "legacy", costCentre: "Finance" }),
+    makeLicense({ poNumber: "PO-200", expirationStatus: "retired" }),
+  ]
+
+  test("counts search matches outside the selected statuses", () => {
+    const { result } = renderHook(() => useLicenseData(licenses(), { ...defaultOptions, search: "po-100", statusFilters: ["active", "expiring", "expired"] }))
+
+    expect(result.current.filtered).toHaveLength(1)
+    expect(result.current.hiddenByStatusCount).toBe(2)
+  })
+
+  test("is zero without a search or without status chips", () => {
+    const noSearch = renderHook(() => useLicenseData(licenses(), { ...defaultOptions, statusFilters: ["active"] }))
+    expect(noSearch.result.current.hiddenByStatusCount).toBe(0)
+
+    const noChips = renderHook(() => useLicenseData(licenses(), { ...defaultOptions, search: "po-100" }))
+    expect(noChips.result.current.filtered).toHaveLength(3)
+    expect(noChips.result.current.hiddenByStatusCount).toBe(0)
+  })
+
+  test("does not count matches that a column filter excludes", () => {
+    const { result } = renderHook(() => useLicenseData(licenses(), {
+      ...defaultOptions,
+      search: "po-100",
+      statusFilters: ["active"],
+      columnFilters: { costCentre: ["Engineering"] },
+    }))
+
+    expect(result.current.hiddenByStatusCount).toBe(1)
+  })
+})

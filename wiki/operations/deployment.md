@@ -43,7 +43,7 @@ All variables are read from `.env` at container start. Restart the container aft
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `JWT_SECRET` | Yes | none | Secret key used to sign authentication tokens. |
+| `JWT_SECRET` | Yes | none | Secret key that signs login sessions. It also protects the secrets stored in the database and the API tokens; see [Keep `JWT_SECRET` with your backups](#keep-jwt_secret-with-your-backups) before changing it. |
 | `APP_PORT` | No | `8080` | Host port exposed by Docker Compose. |
 | `HOST` | No | `0.0.0.0` | Backend bind host inside the container. |
 | `LOG_LEVEL` | No | `INFO` | Backend log level. |
@@ -78,6 +78,37 @@ SMTP and OIDC credentials are configured after startup in **Admin > Settings**;
 they are not container environment settings. The supplied Compose file passes
 every environment variable in the table above into the application container,
 so values placed in `.env` take effect after the container is recreated.
+
+### Keep `JWT_SECRET` with your backups
+
+`JWT_SECRET` does more than sign login sessions. LicenseTrack also uses it to:
+
+- encrypt the secrets stored in the database: the SMTP password, the OIDC
+  client secret, webhook signing secrets, and secret settings of Official
+  Extensions;
+- recognise API tokens, which are stored only as a fingerprint made with this
+  secret; and
+- protect the OIDC sign-in flow, unless `OIDC_STATE_SECRET` is set separately.
+
+A database backup therefore only restores completely on a server that uses the
+same `JWT_SECRET`. The secret is not inside the database or the `/data`
+volume: it lives in `.env` (native installations:
+`/etc/licensetrack/licensetrack.env`). Store a copy of it in a safe place
+together with your backups, with the same care as the backups themselves.
+
+If `JWT_SECRET` changes, or a backup is restored on a server with a different
+one, the license data is unaffected but:
+
+- everyone is signed out and has to sign in again;
+- the SMTP password and the OIDC client secret must be entered again in
+  **Admin > Settings**. Until then email sending fails and OIDC sign-in does
+  not work, so keep a local admin account available;
+- existing API tokens are no longer accepted. Revoke them, create new tokens,
+  and update the systems that use them;
+- webhook deliveries are signed with a value the receiver does not know, so
+  signature checks fail. Delete and re-create each webhook endpoint and give
+  the receiver its new signing secret; and
+- secret settings of Official Extensions must be entered again.
 
 ## Local Keycloak OIDC testing
 
@@ -168,7 +199,7 @@ them while the app is running, and never copy `licenses.db` on its own as a
 backup. Use the in-app backup instead. WAL needs a local disk; network shares
 (NFS, SMB) are not supported for the database.
 
-Back up the full volume for a complete snapshot of the database, uploaded documents, and database backup files.
+Back up the full volume for a complete snapshot of the database, uploaded documents, and database backup files. The volume does not contain `.env`; keep a copy of that file, and in particular of `JWT_SECRET`, [with your backups](#keep-jwt_secret-with-your-backups).
 
 ```bash
 docker run --rm \

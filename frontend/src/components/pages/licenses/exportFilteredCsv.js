@@ -3,6 +3,7 @@ import { formatDate, formatDateTime, toInputText } from "../../../utils/formatti
 import { formatQuantityInput } from "../../../utils/quantity.js";
 import { formatLineAmount, getLineAmount } from "../../../utils/lineAmount.js";
 import { renewableLabel } from "../../../utils/licenseTypeRules.js";
+import { buildCsvContent, downloadCsv } from "../../../utils/csvDownload.js";
 import csvFields from "../../../generated/csvFields.json";
 
 const INVOICE_LIST_PREFIX = "LT-INVOICES:";
@@ -165,27 +166,5 @@ export function exportFilteredCsv(rows, columns, locale, displayCurrency, allLic
     });
   });
 
-  const escape = (val) => {
-    const raw = String(val ?? "");
-    const s = /^[\s]*[=+\-@]/.test(raw) ? `'${raw}` : raw;
-    return (s.includes(",") || s.includes('"') || s.includes("\n"))
-      ? `"${s.replace(/"/g, '""')}"`
-      : s;
-  };
-
-  const csvLines = [
-    headers.map(escape).join(","),
-    ...dataRows.map((row) => row.map(escape).join(",")),
-  ];
-  const csvContent = `\ufeff${csvLines.join("\r\n")}`;
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = "licenses_export.csv";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+  downloadCsv("licenses_export.csv", buildCsvContent(headers, dataRows));
 }
