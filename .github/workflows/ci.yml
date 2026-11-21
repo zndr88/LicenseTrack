@@ -111,7 +111,7 @@ jobs:
         run: npm run lint
 
       - name: Unit tests (vitest)
-        run: npm run test:run
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build
