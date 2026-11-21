@@ -9,6 +9,7 @@ import { getUpcomingReplacementState, getVisibleColumns, rowStyle, VIRTUAL_THRES
 
 export default function LicenseTable({
   filtered,
+  loading = false,
   sorted,
   paginatedItems,
   licenses,
@@ -177,7 +178,7 @@ export default function LicenseTable({
             showGroupableColumns={showGroupableColumns}
           />
           <tbody>
-            {filtered.length === 0 ? (
+            {filtered.length === 0 ? (loading ? null : (
               <tr>
                 <td colSpan={visibleColumns.length}>
                   <div className="empty">
@@ -187,7 +188,7 @@ export default function LicenseTable({
                   </div>
                 </td>
               </tr>
-            ) : useVirtual ? (() => {
+            )) : useVirtual ? (() => {
               const virtualItems = rowVirtualizer.getVirtualItems();
               const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
               const paddingBottom = virtualItems.length > 0

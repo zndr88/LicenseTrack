@@ -44,8 +44,9 @@ the successor's original purchase trail.
 Pending Renewal describes the procurement workflow; it does not replace the
 current term's date status. In License Overview, a pending row keeps its purple
 shade and Pending Renewal badge while an orange or red edge and a second badge
-show whether the term is Expiring or Expired. The row appears under Pending and
-also under its applicable Expiring or Expired filter.
+show whether the term is Expiring or Expired. The row appears under the
+**Renewal in progress** filter and also under its applicable Expiring or
+Expired filter.
 
 ## Renewal-action window and annual value
 
