@@ -66,7 +66,7 @@ describe("maintenanceLinking", () => {
 
 describe("maintenance parent types have one owner", () => {
   // Other rules that happen to use the same three types are named here on purpose.
-  const OTHER_RULES = ["/constants/licenseData.js", "/utils/reportHelpers.js", "/utils/maintenanceCoverage.js"];
+  const OTHER_RULES = ["/constants/licenseData.js", "/utils/maintenanceCoverage.js"];
   const sources = import.meta.glob("../../**/*.{js,jsx}", { query: "?raw", import: "default", eager: true });
 
   it("keeps maintenance-link eligibility in the shared helper", () => {

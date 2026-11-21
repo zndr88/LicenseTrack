@@ -1,0 +1,105 @@
+{
+  "about": "Portfolio statistics cases run by the server (tests/test_unit/test_portfolio_stats_cases.py) and by the in-browser demo (frontend/src/demo/__tests__/sharedCases.test.js). License fields use the camelCase names of the API; anything left out takes the default in license_defaults. Dates are whole-day offsets from today (0 = today, -1 = yesterday), or null. expected lists only the statistics a case is about; annual cost is compared to two decimals.",
+  "license_defaults": {"licenseType": "subscription", "currency": "EUR", "quantity": "1", "unitPrice": "0", "startDate": null, "endDate": null, "isRetired": false, "retirementScheduled": false, "lifecycleStatus": null, "isCompletenessExempt": false, "isRenewable": null, "renewedToId": null, "poNumber": "", "invoiceNumber": "", "poTotalOverride": null, "maintenanceCoverage": null, "maintenanceCost": null, "maintenanceStartDate": null, "maintenanceEndDate": null},
+  "cases": [
+    {
+      "name": "every license lands in one status",
+      "licenses": [
+        {"id": 1, "endDate": 60},
+        {"id": 2, "endDate": 10},
+        {"id": 3, "endDate": -1},
+        {"id": 4, "startDate": 30, "endDate": 394},
+        {"id": 5, "licenseType": "perpetual"},
+        {"id": 6, "endDate": 60, "isRetired": true},
+        {"id": 7, "endDate": 60, "lifecycleStatus": "legacy"},
+        {"id": 8, "endDate": -5, "renewedToId": 9},
+        {"id": 9, "startDate": -4, "endDate": 360},
+        {"id": 10, "endDate": -5, "renewedToId": 11},
+        {"id": 11, "startDate": 3, "endDate": 367},
+        {"id": 12, "licenseType": "service"}
+      ],
+      "expected": {"total": 12, "total_active": 5, "total_expiring": 1, "total_expired": 2, "total_upcoming": 2, "total_retired": 1, "total_legacy": 1, "total_renewed": 1, "total_pending": 0, "total_retirement_scheduled": 0, "total_incomplete": 0}
+    },
+    {
+      "name": "expiring and expired split into renewal, retiring and not started",
+      "licenses": [
+        {"id": 1, "endDate": 10},
+        {"id": 2, "endDate": 10, "lifecycleStatus": "pending_renewal"},
+        {"id": 3, "endDate": 10, "retirementScheduled": true},
+        {"id": 4, "endDate": 10, "lifecycleStatus": "pending_renewal", "retirementScheduled": true},
+        {"id": 5, "endDate": -5},
+        {"id": 6, "endDate": -5, "lifecycleStatus": "pending_renewal"},
+        {"id": 7, "endDate": 200, "lifecycleStatus": "pending_renewal"}
+      ],
+      "expected": {"total_expiring": 4, "total_expired": 2, "total_pending": 4, "total_retirement_scheduled": 2, "expiring_breakdown": {"renewal_in_progress": 2, "retiring": 1, "not_started": 1}, "expired_breakdown": {"renewal_in_progress": 1, "retiring": 0, "not_started": 1}}
+    },
+    {
+      "name": "annual cost counts current recurring lines, scaled to one year",
+      "licenses": [
+        {"id": 1, "quantity": "10", "unitPrice": "120.50", "startDate": -100, "endDate": 264},
+        {"id": 2, "licenseType": "saas", "currency": "USD", "quantity": "3", "unitPrice": "1000", "startDate": -100, "endDate": 899},
+        {"id": 3, "licenseType": "maintenance", "unitPrice": "500", "endDate": 200},
+        {"id": 4, "licenseType": "perpetual", "quantity": "15", "unitPrice": "320"},
+        {"id": 5, "licenseType": "service", "isRenewable": true, "unitPrice": "2000", "endDate": 100},
+        {"id": 6, "licenseType": "service", "isRenewable": false, "unitPrice": "700", "endDate": 100},
+        {"id": 7, "licenseType": "other", "unitPrice": "650"},
+        {"id": 8, "unitPrice": "999", "endDate": -10},
+        {"id": 9, "unitPrice": "888", "startDate": 20, "endDate": 384},
+        {"id": 10, "quantity": "2", "unitPrice": "50", "endDate": 5},
+        {"id": 11, "unitPrice": "444", "endDate": 60, "isRetired": true}
+      ],
+      "expected": {"annual_cost_by_currency": {"EUR": "3805.00", "USD": "1095.00"}, "excluded_from_totals": 0}
+    },
+    {
+      "name": "annual cost counts paid included maintenance while its term is current",
+      "licenses": [
+        {"id": 1, "licenseType": "perpetual", "quantity": "15", "unitPrice": "320", "maintenanceCoverage": "included", "maintenanceCost": "960.00", "maintenanceStartDate": -100, "maintenanceEndDate": 264},
+        {"id": 2, "licenseType": "oem", "maintenanceCoverage": "included", "maintenanceCost": "300"},
+        {"id": 3, "licenseType": "freeware", "currency": "USD", "maintenanceCoverage": "included", "maintenanceCost": "1200", "maintenanceStartDate": -10, "maintenanceEndDate": 1085},
+        {"id": 4, "licenseType": "perpetual", "maintenanceCoverage": "included", "maintenanceCost": "100", "maintenanceStartDate": 0, "maintenanceEndDate": 0},
+        {"id": 5, "licenseType": "perpetual", "maintenanceCoverage": "included", "maintenanceCost": "400", "maintenanceEndDate": -1},
+        {"id": 6, "licenseType": "perpetual", "maintenanceCoverage": "included", "maintenanceCost": "500", "maintenanceStartDate": 1},
+        {"id": 7, "licenseType": "perpetual", "maintenanceCoverage": "separately_tracked", "maintenanceCost": "250"},
+        {"id": 8, "licenseType": "perpetual", "maintenanceCoverage": "included", "maintenanceCost": "0"},
+        {"id": 9, "licenseType": "perpetual", "maintenanceCoverage": "included", "maintenanceCost": "9,60"},
+        {"id": 10, "licenseType": "perpetual", "maintenanceCoverage": "included", "maintenanceCost": "700", "isRetired": true}
+      ],
+      "expected": {"annual_cost_by_currency": {"EUR": "1360.00", "USD": "399.64"}, "excluded_from_totals": 0}
+    },
+    {
+      "name": "a recurring line with an unreadable amount is excluded and counted",
+      "licenses": [
+        {"id": 1, "quantity": "2", "unitPrice": "10", "endDate": 100},
+        {"id": 2, "quantity": "1", "unitPrice": "1.234,50", "endDate": 100},
+        {"id": 3, "quantity": "", "unitPrice": "10", "endDate": 100}
+      ],
+      "expected": {"annual_cost_by_currency": {"EUR": "20.00"}, "excluded_from_totals": 1}
+    },
+    {
+      "name": "incomplete counts current and expired records, not closed or exempt ones",
+      "mandatory_fields": {"poNumber": true, "invoiceNumber": true, "costCentre": false},
+      "licenses": [
+        {"id": 1, "endDate": 100, "poNumber": "PO-1", "invoiceNumber": "INV-1"},
+        {"id": 2, "endDate": 100, "poNumber": "PO-2"},
+        {"id": 3, "endDate": -5, "poNumber": "PO-3"},
+        {"id": 4, "endDate": 100, "lifecycleStatus": "pending_renewal"},
+        {"id": 5, "endDate": 100, "isRetired": true},
+        {"id": 6, "endDate": 100, "lifecycleStatus": "legacy"},
+        {"id": 7, "endDate": 100, "isCompletenessExempt": true},
+        {"id": 8, "endDate": -5, "renewedToId": 9},
+        {"id": 9, "startDate": -4, "endDate": 360, "poNumber": "PO-9", "invoiceNumber": "INV-9"}
+      ],
+      "expected": {"total_incomplete": 3}
+    },
+    {
+      "name": "manual PO totals that differ from the lines are counted once per PO",
+      "licenses": [
+        {"id": 1, "endDate": 100, "poNumber": "PO-1", "unitPrice": "100", "poTotalOverride": "500"},
+        {"id": 2, "endDate": 100, "poNumber": "PO-1", "unitPrice": "200", "poTotalOverride": "500"},
+        {"id": 3, "endDate": 100, "poNumber": "PO-2", "unitPrice": "50", "poTotalOverride": "50.00"},
+        {"id": 4, "licenseType": "perpetual", "poNumber": "PO-3", "unitPrice": "10", "poTotalOverride": "999"}
+      ],
+      "expected": {"annual_cost_by_currency": {"EUR": "350.00"}, "po_overrides_not_in_annual": 1}
+    }
+  ]
+}

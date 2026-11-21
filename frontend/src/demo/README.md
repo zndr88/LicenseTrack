@@ -29,9 +29,21 @@ Nothing is written to localStorage; nothing leaves the browser.
 
 `store.js`, `handlers.js` and `fixtures.js` re-implement backend rules. Each
 mirror is tagged with a `Mirrors backend/app/...` comment naming the function it
-follows. After a release that changes backend behavior, diff `backend/app`
+follows. `reportHelpers.js` mirrors `reporting_service.py` for the demo's
+Reports page. After a release that changes backend behavior, diff `backend/app`
 since the last re-sync and update the matching mirrors. Fixture terms follow
 the app's date convention: a one-year term ends the day before its anniversary.
+
+Two guards fail when the demo and the server drift apart:
+
+- `__tests__/mirrorMarkers.test.js` checks that every `backend/app/...py` file
+  named in a comment still exists, and the function named after it as well.
+  Write the function as `backend/app/services/x.py::function_name` so the
+  test picks it up.
+- `__tests__/sharedCases.test.js` runs the case files in
+  `backend/tests/fixtures/` (`portfolio_stats_cases.json`,
+  `completeness_cases.json`) that the server tests run too. Add a case there
+  when a statistics or completeness rule changes.
 
 The backend's daily license jobs (ended one-off Service/Other retirement,
 scheduled retirements, and maintenance hand-over) run once when the demo
