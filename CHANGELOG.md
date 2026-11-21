@@ -52,6 +52,10 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- When the list on Sourcing, Pending Orders or Contracts could not be loaded,
+  the page showed a brief error and then its "nothing here yet" message, as if
+  there were no data. These pages now show the error with a Retry button
+  instead, the same way Licenses, Renewals and Notifications do.
 - Selecting another license while the License Details edit form was open kept
   the form open, and saving then wrote the first license's values onto the
   other license. The edit form now belongs to the license it was opened for,
@@ -91,6 +95,13 @@ contracts will be called out under a **Breaking** heading in future releases.
   pencil no longer offers Other, its hint points to Edit, and the API rejects
   the change with a clear message. An existing Other license can still be
   changed to another type this way.
+- Small display corrections. In License Overview the selected status chips
+  had no background fill, the clear button was shown when there was nothing to
+  clear, and "No licenses found" appeared under "Loading licenses..." on first
+  load. The **Pending** chip is now called **Renewal in progress**, as in the
+  sidebar. The text shown while a page loads is styled, the Notifications
+  intro no longer starts with "In production", and the settings **Daily Send
+  Time** and **Daily Database Backup Hour** now say they are in UTC.
 
 ## [1.2.1] - 2026-10-29
 
