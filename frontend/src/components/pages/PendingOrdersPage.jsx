@@ -3,6 +3,7 @@ import { uploadPendingOrderDocument } from "../../api/pendingOrders.js";
 import { draftDocumentTargetMap, uploadDraftDocuments } from "../../utils/draftDocuments.js";
 import { ROLE_PERMISSIONS } from "../../constants/permissions.js";
 import Icon from "../ui/Icon.jsx";
+import LoadError from "../ui/LoadError.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import PendingOrderModal from "../procurement/PendingOrderModal.jsx";
 import ConvertPendingOrderModal from "../procurement/ConvertPendingOrderModal.jsx";
@@ -54,6 +55,7 @@ export default function PendingOrdersPage({
   const {
     pendingOrders,
     pendingOrderHistory,
+    pendingOrdersError,
     pendingOrdersLoading,
     historyLoading,
     refetch,
@@ -246,7 +248,10 @@ export default function PendingOrdersPage({
             Loading pending orders...
           </div>
         )}
-        {!pendingOrdersLoading && pendingOrders.length === 0 ? (
+        {pendingOrdersError && !pendingOrdersLoading && (
+          <LoadError message={pendingOrdersError} onRetry={() => refetch()} />
+        )}
+        {pendingOrdersError && pendingOrders.length === 0 ? null : !pendingOrdersLoading && pendingOrders.length === 0 ? (
           <div className="empty">
             <Icon name="clock" size={32} color="var(--text-3)" />
             <h3>No pending orders yet</h3>

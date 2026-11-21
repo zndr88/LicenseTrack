@@ -117,10 +117,6 @@ export function usePendingOrdersData({
 
 
   useEffect(() => {
-    if (queryError) showError(queryError.message);
-  }, [queryError, showError]);
-
-  useEffect(() => {
     if (historyError) showError(historyError.message);
   }, [historyError, showError]);
 
@@ -396,6 +392,7 @@ export function usePendingOrdersData({
   return {
     pendingOrders,
     pendingOrderHistory,
+    pendingOrdersError: queryError ? queryError.message : null,
     pendingOrdersLoading,
     historyLoading,
     refetch,

@@ -42,6 +42,10 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ### Fixed
 
+- When the list on Sourcing, Pending Orders or Contracts could not be loaded,
+  the page showed a brief error and then its "nothing here yet" message, as if
+  there were no data. These pages now show the error with a Retry button
+  instead, the same way Licenses, Renewals and Notifications do.
 - Selecting another license while the License Details edit form was open kept
   the form open, and saving then wrote the first license's values onto the
   other license. The edit form now belongs to the license it was opened for,
