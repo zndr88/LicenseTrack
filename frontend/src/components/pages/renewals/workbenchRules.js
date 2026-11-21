@@ -196,6 +196,77 @@ export function prioritySortRows(rows) {
   });
 }
 
+/** Columns whose header sorts the workbench; other columns keep the priority order. */
+export const WORKBENCH_SORT_COLUMNS = new Set(["dueDate", "license", "supplier", "budgetOwner", "value"]);
+
+/** Header click cycle: ascending, descending, then back to the priority order. */
+export function nextWorkbenchSort(sort, columnId) {
+  if (sort?.column !== columnId) return { column: columnId, dir: "asc" };
+  if (sort.dir === "asc") return { column: columnId, dir: "desc" };
+  return null;
+}
+
+function compareText(a, b) {
+  return sortText(a).localeCompare(sortText(b));
+}
+
+function isBlank(value) {
+  return value === null || value === undefined || String(value).trim() === "";
+}
+
+const WORKBENCH_SORTERS = {
+  // The same deadline the Due Date column shows: the notice date when it comes first.
+  dueDate: {
+    blank: (row) => !hasValue(effectiveDeadlineDays(row)),
+    compare: (a, b) => effectiveDeadlineDays(a) - effectiveDeadlineDays(b),
+  },
+  license: {
+    blank: (row) => isBlank(row.publisherName),
+    compare: (a, b) => compareText(a.publisherName, b.publisherName) || compareText(a.softwareDescription, b.softwareDescription),
+  },
+  supplier: {
+    blank: (row) => isBlank(row.supplier),
+    compare: (a, b) => compareText(a.supplier, b.supplier),
+  },
+  budgetOwner: {
+    blank: (row) => isBlank(row.budgetOwnerEmail),
+    compare: (a, b) => compareText(a.budgetOwnerEmail, b.budgetOwnerEmail),
+  },
+  value: {
+    blank: (row) => !hasValue(row.estimatedAnnualValue),
+    compare: (a, b) => Number(a.estimatedAnnualValue) - Number(b.estimatedAnnualValue),
+  },
+};
+
+/**
+ * Sort rows by a clicked column. `rows` must already be in priority order:
+ * rows that tie keep that order, and no sort (null) returns it unchanged.
+ * Blank values go last in both directions.
+ *
+ * Value never compares amounts across currencies (no FX conversion): rows stay
+ * together per currency, in currency-code order, and only the amounts inside
+ * one currency follow the chosen direction.
+ */
+export function sortWorkbenchRows(rows, sort) {
+  const sorter = WORKBENCH_SORTERS[sort?.column];
+  if (!sorter) return rows;
+  const direction = sort.dir === "desc" ? -1 : 1;
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      if (sort.column === "value") {
+        const currencyDiff = compareText(a.row.currency, b.row.currency);
+        if (currencyDiff !== 0) return currencyDiff;
+      }
+      const aBlank = sorter.blank(a.row);
+      const bBlank = sorter.blank(b.row);
+      if (aBlank !== bBlank) return aBlank ? 1 : -1;
+      const diff = aBlank ? 0 : sorter.compare(a.row, b.row) * direction;
+      return diff || a.index - b.index;
+    })
+    .map((entry) => entry.row);
+}
+
 export function orderRiskFlags(flags = []) {
   return [...flags].sort((a, b) => {
     const severityDiff = (SEVERITY_RANK[a.severity] ?? 3) - (SEVERITY_RANK[b.severity] ?? 3);

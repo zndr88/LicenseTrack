@@ -15,6 +15,7 @@
 .rw-table th:nth-child(8) { width: 140px; }
 .rw-table th:nth-child(10) { width: 230px; }
 .rw-column-btn { height: 30px; }
+.rw-column-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .rw-column-menu {
   position: absolute;
   right: 0;

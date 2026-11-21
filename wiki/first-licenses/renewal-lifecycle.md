@@ -25,6 +25,18 @@ appears there, even when its end date is further out. When the notice date
 comes first, the workbench lists the row by that date and marks it with an
 **N**. See [notice deadlines](renewal-reference.md#notice-deadlines).
 
+Rows start in priority order, most urgent first. Click the **Due Date**,
+**Publisher / Software**, **Supplier**, **Budget Owner** or **Value** header to
+sort by that column instead: once for ascending, again for descending, and a
+third time to return to the priority order. With the keyboard, Tab to the
+header and press Enter or Space. **Value** sorts inside each currency and keeps
+currencies apart, because amounts in different currencies are not converted.
+
+**Export CSV** downloads the workbench as you see it: the rows of the current
+view and search, in the order shown, with the columns you have switched on.
+Dates are written as `YYYY-MM-DD`, amounts as plain decimals, and every amount
+has its currency code in a separate column.
+
 The renewal area in License Details has a close button if you want it out of
 the way while you review the record. It comes back the next time you open the
 license.
