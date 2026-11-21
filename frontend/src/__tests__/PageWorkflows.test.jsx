@@ -522,6 +522,27 @@ describe("LicensesPage workflows", () => {
     expect(screen.queryByText("Acme Suite")).not.toBeInTheDocument();
   });
 
+  test("says when search matches are hidden by the status filter and can show them", async () => {
+    licensesApi.getLicenses.mockResolvedValueOnce({
+      data: [
+        license(),
+        license({ id: 2, publisherName: "Beta", softwareDescription: "Beta Tool", poNumber: "PO-OLD", expirationStatus: "renewed" }),
+      ],
+      error: null,
+    });
+    renderLicensesPage();
+    expect(await screen.findByText("Acme Suite")).toBeInTheDocument();
+    expect(screen.queryByText(/hidden by the status filter/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/Search licenses/i), { target: { value: "PO-OLD" } });
+    expect(await screen.findByText("No licenses found")).toBeInTheDocument();
+    expect(screen.getAllByText(/1 match hidden by the status filter/i)).toHaveLength(2);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Show all" })[0]);
+    expect(await screen.findByText("Beta Tool")).toBeInTheDocument();
+    expect(screen.queryByText(/hidden by the status filter/i)).not.toBeInTheDocument();
+  });
+
   test("keeps table headers and column filters available when no licenses match", async () => {
     const user = userEvent.setup();
     licensesApi.getLicenses.mockResolvedValueOnce({ data: [license()], error: null });
