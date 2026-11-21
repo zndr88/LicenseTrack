@@ -16,6 +16,14 @@ export function invalidatePortfolioState(queryClient) {
   ]);
 }
 
+// Invalidate every cached pending-order list: the open list and the wider
+// Pending Orders page list that also holds converted orders with an open
+// document transfer. The wider key extends the open key, so one prefix
+// invalidation reaches both.
+export function invalidatePendingOrders(queryClient) {
+  return queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders });
+}
+
 // Invalidate all queries affected by a renewal workflow mutation.
 // Covers licenses, sourcing views/items, renewals, portfolio counts, and notifications.
 export function invalidateRenewalWorkflow(queryClient) {
@@ -38,7 +46,7 @@ export function invalidateProcurementRenewalState(queryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcing }),
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcingHistory }),
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
+    invalidatePendingOrders(queryClient),
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
     queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
     invalidatePortfolioState(queryClient),
@@ -74,7 +82,7 @@ export function invalidateReferenceData(queryClient) {
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcing }),
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcingHistory }),
     queryClient.invalidateQueries({ queryKey: queryKeys.sourcingItems }),
-    queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrders }),
+    invalidatePendingOrders(queryClient),
     queryClient.invalidateQueries({ queryKey: queryKeys.pendingOrderHistory }),
     queryClient.invalidateQueries({ queryKey: queryKeys.renewals }),
     queryClient.invalidateQueries({ queryKey: queryKeys.reportsPortfolioStats }),

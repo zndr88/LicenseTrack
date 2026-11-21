@@ -4,7 +4,10 @@ export const queryKeys = {
   sourcing: ["sourcing"],
   sourcingHistory: ["sourcing-history"],
   sourcingItems: ["sourcing-items"],
+  // Open pending orders only. The wider list below shares this prefix, so
+  // invalidating pendingOrders also refreshes it.
   pendingOrders: ["pending-orders"],
+  pendingOrdersWithEvidenceIssues: ["pending-orders", "with-evidence-issues"],
   pendingOrderHistory: ["pending-order-history"],
   contracts: ["contracts"],
   notifications: ["notifications"],
