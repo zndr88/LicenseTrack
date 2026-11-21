@@ -299,4 +299,5 @@
 }
 .page-header p { font-family: var(--font-sans); font-size: 11px; color: var(--text-2); margin-top: 2px; }
 .page-content { padding: 14px 20px; }
+.page-loading { padding: 14px 20px; color: var(--text-2); font-size: 13px; }
 

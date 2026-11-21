@@ -75,7 +75,7 @@ export default function NotificationsPage({
         {!showInitialLoading && !showError && hasValidResult && notificationList.length > 0 && (
           <div className="notifs">
             <div style={{ fontSize: 11, color: "var(--text-3)", marginBottom: 6 }}>
-              In production, expiration alerts are emailed directly to budget owners. Notice deadline reminders and daily summaries go to: <strong style={{ color: "var(--text-2)" }}>{globalSettings.managerEmail}</strong>
+              Expiration alerts are emailed directly to budget owners. Notice deadline reminders and daily summaries go to: <strong style={{ color: "var(--text-2)" }}>{globalSettings.managerEmail}</strong>
             </div>
             {notificationList.map((notification) => {
               const colors = {

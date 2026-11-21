@@ -22,7 +22,7 @@ describe("LicenseStatusFilter", () => {
     expect(screen.getByText("Upcoming")).toBeTruthy();
     expect(screen.getByText("Expiring")).toBeTruthy();
     expect(screen.getByText("Expired")).toBeTruthy();
-    expect(screen.getByText("Pending")).toBeTruthy();
+    expect(screen.getByText("Renewal in progress")).toBeTruthy();
     expect(screen.getByText("Renewed")).toBeTruthy();
     expect(screen.getByText("Retired")).toBeTruthy();
     expect(screen.getByText("Legacy")).toBeTruthy();
@@ -72,8 +72,22 @@ describe("LicenseStatusFilter", () => {
     expect(setCurrentPage).toHaveBeenCalledWith(1);
   });
 
-  test("clear button is not shown when statusFilters is empty", () => {
-    setup({ statusFilters: [] });
+  test("clear button is not shown for the default selection", () => {
+    setup({ statusFilters: [...DEFAULT_STATUS_FILTERS].reverse() });
     expect(screen.queryByLabelText("Clear filters")).toBeNull();
+  });
+
+  test("clear button is shown when no status is selected", () => {
+    setup({ statusFilters: [] });
+    expect(screen.getByLabelText("Clear filters")).toBeTruthy();
+  });
+
+  test("chips report their selected state and carry a colour class", () => {
+    setup({ statusFilters: ["active"] });
+    const active = screen.getByRole("button", { name: "Active" });
+    expect(active.getAttribute("aria-pressed")).toBe("true");
+    expect(active.className).toContain("lp-chip-green");
+    expect(active.getAttribute("style")).toBeNull();
+    expect(screen.getByRole("button", { name: "Expired" }).getAttribute("aria-pressed")).toBe("false");
   });
 });
