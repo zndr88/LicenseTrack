@@ -1,5 +1,5 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import CSVImportPage from "../components/pages/CSVImportPage.jsx";
@@ -56,6 +56,8 @@ function renderImportPage() {
   return { ...view, navigate, openPage, hasGuard: () => guard != null };
 }
 
+// The page switches the warning on and off in an effect, so tests wait for it
+// with waitFor after a state change instead of reading it straight away.
 function closingTabAsksFirst() {
   const event = new Event("beforeunload", { cancelable: true });
   window.dispatchEvent(event);
@@ -67,6 +69,9 @@ async function loadFile(container) {
     target: { files: [new File(["publisher"], "licenses.csv", { type: "text/csv" })] },
   });
   expect(await screen.findByText("Imported Suite")).toBeInTheDocument();
+  // The preview can be on screen a moment before the page has switched its
+  // leave guard on, so wait for the guard before a test tries to leave.
+  await waitFor(() => expect(closingTabAsksFirst()).toBe(true));
 }
 
 describe("CSV import leave warning", () => {
@@ -133,10 +138,10 @@ describe("CSV import leave warning", () => {
     await loadFile(container);
 
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    await waitFor(() => expect(closingTabAsksFirst()).toBe(false));
     openPage("licenses");
 
     expect(navigate).toHaveBeenCalledWith("licenses");
-    expect(closingTabAsksFirst()).toBe(false);
   });
 
   test("does not warn on the Done step", async () => {
@@ -146,7 +151,7 @@ describe("CSV import leave warning", () => {
     fireEvent.click(screen.getByRole("button", { name: /Import 1 license/i }));
     expect(await screen.findByText(/Import complete/i)).toBeInTheDocument();
 
-    expect(closingTabAsksFirst()).toBe(false);
+    await waitFor(() => expect(closingTabAsksFirst()).toBe(false));
     openPage("licenses");
 
     expect(navigate).toHaveBeenCalledWith("licenses");
