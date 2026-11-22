@@ -94,7 +94,7 @@ plugins:
   - search
 
 extra:
-  docs_version: "1.2.1"
+  docs_version: "1.2.2"
 
 extra_css:
   - stylesheets/docs.css
