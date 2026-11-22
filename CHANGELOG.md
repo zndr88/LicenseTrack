@@ -15,6 +15,106 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+### Added
+
+- The Renewal Workbench can be sorted by due date, publisher, supplier, budget
+  owner or value by clicking the column header, also from the keyboard (Tab to
+  the header, then Enter or Space). A third click returns to the standard order.
+  Value sorts inside each currency and never ranks one currency against another.
+- The Renewal Workbench has an "Export CSV" button that downloads the rows and
+  columns currently shown, in the order shown, with ISO dates, plain decimal
+  amounts and the currency code in its own column.
+- License Details has copy buttons next to the LT reference, external
+  reference, PO number, contract number and invoice numbers, and a "Copy link"
+  button for the address of the license. A short message confirms each copy.
+- License Overview search says when matches are kept out of the list by the
+  status chips: "N matches hidden by the status filter", next to the chips and
+  in the "No licenses found" message, with a **Show all** link that clears the
+  chips. Before, searching for an upcoming, renewed, retired or legacy record
+  showed nothing and gave no hint that the record exists.
+
+### Changed
+
+- The Contracts page has a search box (contract number, publisher and notes)
+  and a sort control: publisher, contract number, newest first or oldest first.
+- License Details remembers which sections you leave open and opens the
+  next license the same way. This is kept per user in the browser; a link to
+  a section still opens that section.
+- An error on one page no longer replaces the whole app. The page shows the
+  message, with "Try again", and the sidebar and top bar keep working. When a
+  browser tab was left open across an upgrade and a page can no longer be
+  loaded, it says "A new version is available" with a Reload button. An
+  extension button that fails to display is left out instead of breaking its
+  page.
+- CSV import asks before you leave with an import in progress. Once a file is
+  loaded, opening another page shows "Leave the import?" and closing or
+  reloading the tab asks for confirmation, until the import has finished or
+  you cancel it.
+- Removed the unused screenshot-based PDF export and the direct `html2canvas`
+  dependency; the Reports page already always used the structured PDF export.
+  Also removed style rules that no screen uses any more.
+
+### Fixed
+
+- "Add to existing PO" in the sourcing conversion dialog could list an order
+  that was already converted, and the Pending Orders page could briefly miss
+  its rows that need a document-transfer retry, depending on which screen had
+  loaded the pending orders last. The two lists are now kept apart, so the
+  dialog only offers open pending orders.
+- Column headers on Sourcing and Pending Orders could only be sorted with the
+  mouse. They can now be reached with Tab and sorted with Enter or Space, and
+  they announce the sort direction to screen readers, like the license table.
+- When the list on Sourcing, Pending Orders or Contracts could not be loaded,
+  the page showed a brief error and then its "nothing here yet" message, as if
+  there were no data. These pages now show the error with a Retry button
+  instead, the same way Licenses, Renewals and Notifications do.
+- Selecting another license while the License Details edit form was open kept
+  the form open, and saving then wrote the first license's values onto the
+  other license. The edit form now belongs to the license it was opened for,
+  and leaving it with unsaved changes (another license, Cancel, the close
+  button, another page or browser Back) asks before discarding them.
+- Warnings and failures on the Sourcing page and in License Details, such as
+  "saved, but some documents could not be uploaded" or "Accept failed", were
+  shown as green success messages. Messages now have separate success, warning
+  and error styles everywhere. Errors and warnings stay until dismissed instead
+  of disappearing after a few seconds, success messages clear after 5 seconds,
+  and messages are announced to screen readers.
+- Escape did nothing in confirmation dialogs, the "Discard unsaved changes?"
+  dialog, about ten smaller dialogs and the License Details panel. Escape now
+  closes the topmost dialog, or the License Details panel when no dialog is
+  open, and still asks before discarding unsaved changes. Confirmation dialogs
+  now start with the focus on Cancel.
+- Renaming a contract number left behind licenses that were created by
+  converting a pending order, by a renewal or by CSV import: they kept the old
+  number and disappeared from the contract. All licenses that belong to a
+  contract now follow a rename. New licenses are linked to their contract
+  whichever way they are created, and recording a contract links the licenses
+  that already use its number.
+- A routine database backup that failed part-way, for example on a full disk,
+  left an incomplete zip file in the backup folder, and retention counted it
+  as a backup, so it could push good backups out. A backup now only appears
+  in the folder once it is complete and verified. Retention counts readable
+  backups only; a file it cannot read is reported in the log and left in
+  place.
+- Changing the License Type with the pencil in License Details could set
+  **Other** without a type description, which the edit form refuses. The
+  pencil no longer offers Other, its hint points to Edit, and the API rejects
+  the change with a clear message. An existing Other license can still be
+  changed to another type this way.
+- Small display corrections. In License Overview the selected status chips
+  had no background fill, the clear button was shown when there was nothing to
+  clear, and "No licenses found" appeared under "Loading licenses..." on first
+  load. The **Pending** chip is now called **Renewal in progress**, as in the
+  sidebar. The text shown while a page loads is styled, the Notifications
+  intro no longer starts with "In production", and the settings **Daily Send
+  Time** and **Daily Database Backup Hour** now say they are in UTC.
+- Operator documentation and the Help Center now say that `JWT_SECRET` also
+  protects the stored SMTP password, OIDC client secret, webhook signing secrets
+  and API tokens, what to redo after changing it, and that it belongs with the
+  backups. They also state that the notification and backup hours are UTC,
+  that a missed scheduled run is caught up after a restart, and that restore by
+  upload is limited by `MAX_UPLOAD_SIZE_MB`.
+
 ## [1.2.1] - 2026-10-29
 
 This fix release for 1.2.0 updates dependencies for security advisories and
