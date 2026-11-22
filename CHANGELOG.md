@@ -15,6 +15,14 @@ contracts will be called out under a **Breaking** heading in future releases.
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-22
+
+This maintenance release for 1.2 fixes an issue where editing one license
+could save onto another, shows warnings and load errors as such, and adds
+small improvements to License Details, the Renewal Workbench, the Contracts
+page and CSV import. It adds no database migrations; see the
+[upgrade guide](wiki/operations/upgrade.md#upgrading-to-122).
+
 ### Added
 
 - The Renewal Workbench can be sorted by due date, publisher, supplier, budget
@@ -2170,7 +2178,8 @@ the release remains 1.0.0.
 - Configurable upload size and extension allow-list, CORS origin allow-list,
   and session cookie controls.
 
-[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/zndr88/LicenseTrack/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/zndr88/LicenseTrack/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/zndr88/LicenseTrack/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/zndr88/LicenseTrack/compare/v1.1.24...v1.2.0
 [1.1.24]: https://github.com/zndr88/LicenseTrack/compare/v1.1.23...v1.1.24
