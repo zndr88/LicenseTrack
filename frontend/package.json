@@ -17,7 +17,7 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.9.2",
+    "@hookform/resolvers": "^7.0.8",
     "@tanstack/react-query": "^5.108.0",
     "@tanstack/react-virtual": "^3.14.26",
     "jspdf": "^4.2.0",
